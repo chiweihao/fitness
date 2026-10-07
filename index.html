@@ -1,0 +1,2762 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0d0f14">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="健身记录">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="本地健身记录：力量训练逐组记录、有氧热量估算、训练容量与进步曲线">
+<title>我的健身记录</title>
+<style>
+:root{
+  --bg:#0d0f14; --card:#171b23; --card2:#1e232e; --line:#272d3a; --line2:#323a4b;
+  --accent:#ff7a1a; --accent2:#ffa040; --accent-soft:rgba(255,122,26,.14);
+  --green:#2dd47a; --green-soft:rgba(45,212,122,.13);
+  --blue:#4ea8ff; --red:#ff5d5d;
+  --text:#f2f4f8; --sub:#98a1b3; --dim:#5f6a7d;
+  --radius:14px; --shadow:0 8px 24px rgba(0,0,0,.35);
+  --scheme:dark;
+}
+html[data-theme="light"]{
+  --bg:#f5f6f8; --card:#ffffff; --card2:#f0f2f6; --line:#e2e6ee; --line2:#d3d9e4;
+  --accent:#ef6a00; --accent2:#c85a00; --accent-soft:rgba(239,106,0,.12);
+  --green:#12a05d; --green-soft:rgba(18,160,93,.12);
+  --blue:#1a7fd4; --red:#e03b3b;
+  --text:#1a1f2b; --sub:#5d6778; --dim:#8a93a5;
+  --shadow:0 6px 20px rgba(20,26,40,.10);
+  --scheme:light;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--text); color-scheme:var(--scheme);
+  font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",sans-serif;
+  font-size:15px; line-height:1.5; overflow:hidden;
+}
+#app{max-width:520px;margin:0 auto;height:100%;display:flex;flex-direction:column;position:relative}
+::-webkit-scrollbar{display:none}
+button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer;font-size:inherit}
+input,select,textarea{font-family:inherit;color:var(--text)}
+:focus-visible{outline:2px solid var(--accent2);outline-offset:2px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* ===== 图标 ===== */
+.ico{display:inline-block;width:1em;height:1em;vertical-align:-.14em;fill:none;stroke:currentColor;
+  stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#sprite{display:none}
+
+/* ===== 顶栏 ===== */
+.topbar{
+  padding:16px 18px 10px; display:flex; justify-content:space-between; align-items:center; gap:10px;
+  padding-top:calc(14px + env(safe-area-inset-top));
+}
+.app-title{font-size:19px;font-weight:800;letter-spacing:.3px;display:flex;align-items:center;gap:7px}
+.app-title .ico{font-size:21px;color:var(--accent2)}
+.today{font-size:12px;color:var(--sub);margin-top:3px}
+.kcal-badge{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  border-radius:16px; padding:8px 15px; text-align:center; box-shadow:0 6px 18px rgba(255,122,26,.3); color:#fff;
+}
+.kcal-num{font-size:20px;font-weight:800;line-height:1.1}
+.kcal-unit{font-size:11px;font-weight:600;margin-left:3px}
+.kcal-label{font-size:10px;opacity:.9;margin-top:1px}
+
+/* ===== 页面容器 ===== */
+.page{flex:1;overflow-y:auto;overflow-x:hidden;padding:8px 16px 120px;display:none;-webkit-overflow-scrolling:touch}
+.page.active{display:block}
+.page-title{font-size:16px;font-weight:700;margin:8px 2px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.page-title small{color:var(--dim);font-weight:400;font-size:11px}
+.section-head{font-size:12.5px;font-weight:700;color:var(--sub);margin:18px 2px 10px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+
+/* ===== 搜索 ===== */
+.search-bar{display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);
+  border-radius:12px;padding:0 12px;margin-bottom:10px}
+.search-bar .ico{font-size:17px;color:var(--dim)}
+.search-bar input{flex:1;background:none;border:none;outline:none;padding:11px 0;font-size:14px;-webkit-appearance:none;appearance:none}
+.search-bar input::-webkit-search-cancel-button{display:none}
+.search-bar input::placeholder{color:var(--dim)}
+.search-clear{color:var(--dim);font-size:16px;padding:4px;display:none}
+.search-bar.has-val .search-clear{display:block}
+
+/* ===== 日期条 ===== */
+.date-bar{display:flex;align-items:center;gap:8px;padding:2px 2px 10px}
+.db-date{font-size:13px;font-weight:700;color:var(--sub);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px}
+.db-date .ico{font-size:15px}
+.db-input{background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:6px 8px;font-size:12.5px;color:var(--text);max-width:144px}
+.db-today{background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:6px 10px;font-size:12px;color:var(--accent2);font-weight:700;white-space:nowrap}
+.past-banner{display:none;align-items:center;gap:8px;background:var(--accent-soft);border:1px solid var(--accent);
+  color:var(--accent2);border-radius:11px;padding:9px 12px;font-size:12.5px;font-weight:600;margin-bottom:10px}
+.past-banner.show{display:flex}
+.past-banner .ico{font-size:16px}
+
+/* ===== 分类 chips ===== */
+.cat-scroll{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 12px;scrollbar-width:none}
+.chip{
+  flex-shrink:0; display:flex; align-items:center; gap:6px;
+  background:var(--card); border:1px solid var(--line); color:var(--sub);
+  padding:9px 14px; border-radius:999px; font-size:13.5px; font-weight:600; transition:all .18s;
+}
+.chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent2)}
+.chip .ico{font-size:16px}
+
+/* ===== 动作网格 ===== */
+.action-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding-bottom:4px}
+.act-card{
+  position:relative;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:13px 5px 11px; display:flex;flex-direction:column;align-items:center;gap:7px;
+  transition:transform .12s, border-color .18s; min-height:96px; justify-content:center;
+}
+.act-card:active{transform:scale(.96);border-color:var(--accent)}
+.act-card .ico{font-size:25px;color:var(--accent2)}
+.act-name{font-size:12px;font-weight:600;text-align:center;color:var(--text);line-height:1.3}
+.act-tag{font-size:9.5px;color:var(--dim)}
+.act-card .last-dot{position:absolute;top:7px;right:8px;width:6px;height:6px;border-radius:50%;background:var(--green)}
+.add-card{border-style:dashed;color:var(--sub)}
+.add-card .ico{color:var(--sub)}
+.grid-empty{grid-column:1/-1;text-align:center;color:var(--dim);font-size:13px;padding:30px 0}
+
+/* ===== 今日已记录 ===== */
+.today-list{margin-top:6px}
+
+/* ===== 底部 Tab ===== */
+.tabbar{
+  position:fixed; left:0; right:0; bottom:0; z-index:50; max-width:520px; margin:0 auto;
+  display:flex; background:var(--bg); background:color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter:blur(14px);
+  border-top:1px solid var(--line); padding:7px 6px calc(7px + env(safe-area-inset-bottom));
+}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:5px 0;color:var(--dim);font-size:10.5px;font-weight:600;border-radius:10px;transition:color .18s}
+.tab .ico{font-size:21px;transition:transform .18s}
+.tab.active{color:var(--accent2)}
+.tab.active .ico{transform:translateY(-1px)}
+
+/* ===== 休息计时浮条 ===== */
+.rest-bar{
+  position:fixed;left:12px;right:12px;bottom:calc(68px + env(safe-area-inset-bottom));z-index:120;
+  max-width:496px;margin:0 auto;background:var(--card);border:1px solid var(--accent);
+  border-radius:14px;padding:10px 12px;display:none;align-items:center;gap:10px;box-shadow:var(--shadow);
+}
+.rest-bar.show{display:flex}
+.rest-bar.done{border-color:var(--green)}
+.rest-ring{width:40px;height:40px;flex:none;position:relative}
+.rest-ring svg{width:40px;height:40px;transform:rotate(-90deg)}
+.rest-ring circle{fill:none;stroke-width:3.5}
+.rest-ring .bgc{stroke:var(--card2)}
+.rest-ring .fgc{stroke:var(--accent2);stroke-linecap:round;transition:stroke-dashoffset .3s linear}
+.rest-bar.done .fgc{stroke:var(--green)}
+.rest-time{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
+.rest-txt{flex:1;min-width:0}
+.rest-txt .t1{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rest-txt .t2{font-size:11px;color:var(--sub);margin-top:1px}
+.rest-btn{background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:7px 10px;font-size:12px;font-weight:700;color:var(--accent2);white-space:nowrap}
+
+/* ===== 抽屉 ===== */
+.drawer-mask{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:90;opacity:0;pointer-events:none;transition:opacity .25s}
+.drawer-mask.show{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;left:0;right:0;bottom:0;z-index:100;max-width:520px;margin:0 auto;
+  background:var(--card); border-radius:22px 22px 0 0; border-top:1px solid var(--line);
+  transform:translateY(105%); transition:transform .3s cubic-bezier(.2,.8,.25,1);
+  max-height:92vh; max-height:92dvh; display:flex; flex-direction:column;
+}
+.drawer.show{transform:translateY(0)}
+.drag-handle{width:40px;height:4px;border-radius:4px;background:var(--line2);margin:10px auto 4px}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 18px 12px}
+.drawer-title{font-size:17px;font-weight:800;display:flex;align-items:center;gap:8px}
+.drawer-title .ico{font-size:20px;color:var(--accent2)}
+.drawer-sub{font-size:12px;color:var(--sub);margin-top:3px}
+.drawer-close{width:30px;height:30px;border-radius:50%;background:var(--card2);color:var(--sub);font-size:15px;display:flex;align-items:center;justify-content:center;flex:none}
+.drawer-body{flex:1;overflow-y:auto;padding:2px 18px calc(18px + env(safe-area-inset-bottom))}
+
+/* 表单 */
+.field{margin-bottom:16px}
+.field-label{font-size:12.5px;font-weight:700;color:var(--sub);margin-bottom:9px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.field-label .hint{font-weight:400;font-size:11px;color:var(--dim);text-align:right}
+.stepper{display:flex;align-items:center;background:var(--card2);border-radius:12px;overflow:hidden;border:1px solid var(--line)}
+.step-btn{width:46px;height:44px;font-size:20px;font-weight:700;color:var(--accent2);display:flex;align-items:center;justify-content:center;transition:background .15s}
+.step-btn:active{background:var(--accent-soft)}
+.step-val{flex:1;text-align:center;font-size:17px;font-weight:800}
+.step-val small{font-size:11px;font-weight:500;color:var(--dim);margin-left:3px}
+.seg{display:flex;background:var(--card2);border-radius:12px;padding:4px;border:1px solid var(--line);gap:4px}
+.seg button{flex:1;padding:9px 0;border-radius:9px;font-size:13px;font-weight:700;color:var(--sub);transition:all .15s;white-space:nowrap}
+.seg button.on{background:var(--accent-soft);color:var(--accent2)}
+.seg.green button.on{background:var(--green-soft);color:var(--green)}
+.seg.wrap{flex-wrap:wrap}
+.seg.wrap button{flex:0 0 calc(33.33% - 4px);padding:8px 0;font-size:12px}
+input.num,input.txt{
+  width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;
+  padding:12px 14px;font-size:16px;font-weight:700;outline:none;transition:border-color .15s;
+}
+input.num:focus,input.txt:focus{border-color:var(--accent)}
+input.txt{font-weight:600;font-size:15px}
+
+/* 组表格 */
+.sets-box{background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:8px 8px 4px}
+.set-row{display:flex;align-items:center;gap:7px;margin-bottom:8px}
+.set-no{width:26px;height:30px;flex:none;border-radius:8px;background:var(--card);color:var(--sub);
+  font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.set-row.done .set-no{background:var(--green-soft);color:var(--green)}
+.set-in{flex:1;min-width:0;display:flex;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:0 9px}
+.set-in input{width:100%;background:none;border:none;outline:none;padding:8px 0;font-size:15px;font-weight:700;text-align:right;-moz-appearance:textfield}
+.set-in input::-webkit-outer-spin-button,.set-in input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.set-in span{font-size:11px;color:var(--dim);margin-left:4px;flex:none}
+.set-in:focus-within{border-color:var(--accent)}
+.set-x{font-size:12px;color:var(--dim);flex:none}
+.set-act{width:30px;height:30px;flex:none;border-radius:8px;background:var(--card);color:var(--dim);display:flex;align-items:center;justify-content:center;font-size:14px}
+.set-act.on{color:var(--green);background:var(--green-soft)}
+.set-act .ico{font-size:15px}
+.sets-tools{display:flex;gap:8px;margin-top:10px}
+.sets-tools button{flex:1;background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:10px 0;font-size:12.5px;font-weight:700;color:var(--accent2);display:flex;align-items:center;justify-content:center;gap:5px}
+.sets-tools button.sub{color:var(--sub)}
+.sets-sum{font-size:11.5px;color:var(--sub);text-align:center;padding:4px 0 2px}
+.sets-sum b{color:var(--accent2)}
+
+/* 上次记录 */
+.last-box{display:flex;align-items:center;gap:10px;background:var(--card2);border:1px solid var(--line);
+  border-radius:12px;padding:10px 12px;margin-bottom:14px}
+.last-box .lb-txt{flex:1;min-width:0;font-size:12px;color:var(--sub);line-height:1.6}
+.last-box .lb-txt b{color:var(--text);font-weight:700}
+.last-box .lb-sets{color:var(--accent2);font-weight:700}
+.last-box .mini-btn{flex:none}
+.pr-flag{display:inline-flex;align-items:center;gap:3px;color:var(--green);font-weight:700;font-size:11px}
+
+/* 热量预估 */
+.kcal-preview{
+  margin:4px 0 16px;background:linear-gradient(135deg,var(--green-soft),var(--accent-soft));
+  border:1px solid var(--line);border-color:color-mix(in srgb, var(--green) 32%, transparent);border-radius:16px;padding:13px 15px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+}
+.kcal-preview .kv .k{font-size:11px;color:var(--sub)}
+.kcal-preview .kv .v{font-size:22px;font-weight:800;color:var(--green)}
+.kcal-preview .note{font-size:11px;color:var(--dim);text-align:right;line-height:1.6}
+.btn-save{
+  width:100%;padding:15px;border-radius:14px;font-size:16px;font-weight:800;color:#fff;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  box-shadow:0 8px 20px rgba(255,122,26,.3);transition:transform .12s,opacity .15s;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+}
+.btn-save:active{transform:scale(.98);opacity:.9}
+.btn-save.secondary{background:var(--card2);color:var(--sub);box-shadow:none;border:1px solid var(--line);font-weight:700}
+.btn-save.danger{background:var(--card2);color:var(--red);box-shadow:none;border:1px solid var(--line)}
+.btn-pair{display:flex;gap:10px}
+.btn-pair .btn-save{flex:1;font-size:14px;padding:13px}
+
+/* 参考重量 */
+.ref-box{background:var(--card2);border:1px dashed var(--line2);border-radius:10px;padding:10px 12px;margin-top:10px;font-size:12px;color:var(--sub);line-height:1.85}
+.ref-box>b{color:var(--text)}
+.ref-row{display:flex;gap:10px;align-items:center;color:var(--sub)}
+.ref-row .rl{width:50px;font-weight:700;color:var(--text);flex:none}
+.ref-row .rm{margin-left:auto;color:var(--dim);font-size:11px}
+.ref-row.on{color:var(--accent2);font-weight:700}
+.ref-row.on .rl{color:var(--accent2)}
+.ref-note{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line2);color:var(--dim);font-size:11px;line-height:1.6}
+
+/* ===== 历史页 ===== */
+.month-head{font-size:12px;font-weight:800;color:var(--dim);margin:16px 2px 8px;letter-spacing:.5px}
+.day-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px;margin-bottom:12px}
+.day-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:10px}
+.day-date{font-size:15px;font-weight:800}
+.day-meta{font-size:11px;color:var(--dim);font-weight:500;margin-top:3px}
+.day-right{text-align:right;flex:none}
+.day-kcal{font-size:13px;font-weight:800;color:var(--green)}
+.day-tools{display:flex;gap:6px;margin-top:6px;justify-content:flex-end}
+.day-tools button{background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:11px;font-weight:700;color:var(--sub)}
+.hist-item{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;cursor:pointer;
+  padding:9px 10px;background:var(--card2);border-radius:10px;margin-bottom:7px;font-size:13px;
+}
+.hist-item:last-child{margin-bottom:0}
+.hi-main{min-width:0;flex:1}
+.hi-name{font-weight:700;display:flex;align-items:center;gap:6px}
+.hi-name .ico{font-size:16px;color:var(--accent2)}
+.hi-time{font-size:10.5px;color:var(--dim);font-weight:500}
+.hi-detail{color:var(--sub);font-size:11.5px;margin-top:3px;line-height:1.5;word-break:break-word}
+.hi-right{display:flex;align-items:center;gap:4px;flex:none}
+.hi-kcal{color:var(--green);font-weight:700;font-size:12.5px;white-space:nowrap}
+.hi-del{color:var(--dim);padding:6px;border-radius:8px;display:flex}
+.hi-del .ico{font-size:15px}
+.hi-del:active{background:var(--red);color:#fff}
+.empty{text-align:center;color:var(--dim);padding:48px 0;font-size:13.5px;line-height:1.9}
+.empty .ico{font-size:40px;opacity:.45;display:block;margin:0 auto 12px}
+.load-more{width:100%;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:13px;font-weight:700;color:var(--sub);margin-bottom:10px}
+
+/* ===== 统计页 ===== */
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:13px 12px}
+.stat-card .n{font-size:20px;font-weight:800;color:var(--accent2);line-height:1.2}
+.stat-card .n.g{color:var(--green)}
+.stat-card .l{font-size:11px;color:var(--sub);margin-top:3px}
+.chart-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px;margin-bottom:14px}
+.chart-card .t{font-size:13px;font-weight:700;color:var(--sub)}
+.chart-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.chart-head .t{margin:0}
+.seg.mini{padding:3px;border-radius:10px;flex:none}
+.seg.mini button{padding:5px 9px;border-radius:7px;font-size:11.5px;flex:none}
+.mini-btn{background:var(--card2);border:1px solid var(--line);border-radius:9px;padding:6px 11px;font-size:12px;font-weight:700;color:var(--accent2);white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.mini-btn:active{opacity:.7}
+.bars{display:flex;align-items:flex-end;gap:5px;height:118px}
+.bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end;min-width:0}
+.bar{width:100%;max-width:26px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--accent2),var(--accent));min-height:3px;transition:height .4s}
+.bar.zero{background:var(--card2)}
+.bar-label{font-size:9.5px;color:var(--dim);white-space:nowrap}
+.bar-val{font-size:9.5px;color:var(--green);font-weight:700;white-space:nowrap}
+.part-row{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.part-row .pn{width:62px;font-size:12.5px;color:var(--sub);flex:none;text-align:right}
+.part-bar{flex:1;height:10px;background:var(--card2);border-radius:6px;overflow:hidden}
+.part-bar i{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s}
+.part-row .pv{width:46px;font-size:11.5px;font-weight:700;color:var(--accent2);text-align:right}
+.balance-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card2);border-radius:10px;margin-bottom:7px;font-size:12.5px}
+.balance-row .bn{font-weight:700;width:62px;flex:none}
+.balance-row .bd{flex:1;color:var(--sub);font-size:11.5px}
+.balance-row .bt{font-weight:700;font-size:12px}
+.balance-row .bt.ok{color:var(--green)}
+.balance-row .bt.warn{color:var(--accent2)}
+.balance-row .bt.bad{color:var(--red)}
+.pr-row{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--card2);border-radius:10px;margin-bottom:7px;font-size:13px}
+.pr-row .ico{font-size:16px;color:var(--accent2);flex:none}
+.pr-row .pn{flex:1;font-weight:700;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr-row .pv{font-weight:800;color:var(--accent2);white-space:nowrap}
+.pr-row .pd{font-size:10.5px;color:var(--dim);white-space:nowrap}
+.pick-wrap{position:relative}
+select.pick{appearance:none;width:100%;background:var(--card2);border:1px solid var(--line);border-radius:10px;
+  padding:9px 30px 9px 12px;font-size:13px;font-weight:700;outline:none}
+.pick-wrap .ico{position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--dim);font-size:16px}
+.streak-card{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:14px}
+.streak-card .ico{font-size:28px;color:var(--accent)}
+.streak-n{font-size:22px;font-weight:800;color:var(--accent2);line-height:1.1}
+.streak-l{font-size:11.5px;color:var(--sub);margin-top:2px}
+.dots-week{display:flex;gap:4px;margin-left:auto}
+.dots-week i{width:9px;height:9px;border-radius:50%;background:var(--card2);display:block}
+.dots-week i.on{background:var(--green)}
+
+/* ===== 我的页 ===== */
+.form-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px;margin-bottom:14px}
+.form-card>.t{font-size:14px;font-weight:800;margin-bottom:13px;display:flex;align-items:center;gap:7px}
+.form-card>.t .ico{font-size:18px;color:var(--accent2)}
+.form-card>.t small{color:var(--dim);font-weight:500;font-size:11px;margin-left:auto}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.form-row.one{grid-template-columns:1fr}
+.form-item label{display:block;font-size:11.5px;color:var(--sub);margin-bottom:6px;font-weight:600}
+.note-line{font-size:11.5px;color:var(--sub);margin-top:8px;padding:9px 11px;background:var(--card2);border-radius:10px;line-height:1.7}
+.note-line b{color:var(--accent2)}
+.btn-row{display:flex;gap:10px;margin-top:8px}
+.btn-row .btn-save{flex:1;padding:12px;font-size:14px}
+.list-item{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 11px;background:var(--card2);border-radius:10px;margin-bottom:8px;font-size:13px}
+.list-item .li-name{font-weight:700;display:flex;align-items:center;gap:8px;min-width:0;flex:1}
+.list-item .li-name .ico{font-size:17px;color:var(--accent2);flex:none}
+.list-item .li-name small{color:var(--dim);font-weight:500;font-size:11px}
+.li-acts{display:flex;gap:4px;flex:none}
+.li-acts button{color:var(--dim);padding:5px;border-radius:7px;display:flex}
+.li-acts button .ico{font-size:15px}
+.li-acts button.del:active{background:var(--red);color:#fff}
+.menu-btn{width:100%;text-align:left;padding:13px 14px;background:var(--card2);border:1px solid var(--line);border-radius:12px;margin-bottom:9px;font-size:14px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:10px;color:var(--text)}
+.menu-btn:active{background:var(--line)}
+.menu-btn small{color:var(--dim);font-weight:500;font-size:11.5px;text-align:right}
+.about-note{text-align:center;color:var(--dim);font-size:11px;padding:6px 0 4px;line-height:1.8}
+.icon-pick{display:flex;flex-wrap:wrap;gap:7px;background:var(--card2);border:1px solid var(--line);border-radius:12px;padding:9px;max-height:150px;overflow-y:auto}
+.icon-pick button{width:38px;height:38px;border-radius:9px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--sub)}
+.icon-pick button .ico{font-size:21px}
+.icon-pick button.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent2)}
+.w-item{display:flex;align-items:center;gap:8px;padding:9px 10px;background:var(--card2);border-radius:10px;margin-bottom:7px;font-size:13px}
+.w-date{font-size:12px;color:var(--sub);flex:1}
+.w-val{font-weight:800}
+.w-diff{font-size:12px;font-weight:700;width:52px;text-align:right}
+.w-diff.up{color:var(--red)}
+.w-diff.down{color:var(--green)}
+.w-diff0{color:var(--dim)}
+.backup-warn{display:flex;align-items:center;gap:9px;background:var(--accent-soft);border:1px solid var(--accent);
+  border-radius:11px;padding:10px 12px;font-size:12px;color:var(--accent2);font-weight:600;margin-bottom:10px;line-height:1.5}
+.backup-warn .ico{font-size:17px;flex:none}
+
+/* ===== Toast ===== */
+#toast{
+  position:fixed;left:50%;bottom:calc(104px + env(safe-area-inset-bottom));transform:translateX(-50%) translateY(16px);
+  background:var(--card);color:var(--text);padding:10px 14px;border-radius:999px;
+  font-size:13.5px;font-weight:600;border:1px solid var(--line2);box-shadow:var(--shadow);
+  opacity:0;pointer-events:none;transition:all .25s;z-index:200;max-width:88%;
+  display:flex;align-items:center;gap:10px;
+}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
+#toast .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#toast .undo{background:var(--accent-soft);color:var(--accent2);border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;flex:none;display:none}
+#toast.has-undo .undo{display:block}
+
+/* ===== 弹层 ===== */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:99;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal-mask.show{opacity:1;pointer-events:auto}
+.modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%) scale(.96);width:calc(100% - 56px);max-width:340px;
+  background:var(--card);border:1px solid var(--line);border-radius:18px;padding:19px;z-index:100;
+  opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;max-height:80vh;overflow-y:auto}
+.modal.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+.modal-title{font-size:16px;font-weight:800;margin-bottom:14px;text-align:center}
+.modal-row{display:flex;gap:10px;margin-top:16px}
+.modal-row .btn-save{flex:1;padding:12px;font-size:14px}
+.modal-text{font-size:13px;color:var(--sub);line-height:1.8;margin-bottom:4px}
+</style>
+</head>
+<body>
+<svg id="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+<symbol id="i-barbell" viewBox="0 0 24 24"><path d="M2.5 12h19"/><rect x="4" y="8" width="2.6" height="8" rx="1.1"/><rect x="17.4" y="8" width="2.6" height="8" rx="1.1"/><path d="M8.2 9.6v4.8M15.8 9.6v4.8"/></symbol>
+<symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M7.5 12h9"/><rect x="3" y="7.8" width="3.2" height="8.4" rx="1.3"/><rect x="17.8" y="7.8" width="3.2" height="8.4" rx="1.3"/></symbol>
+<symbol id="i-kettlebell" viewBox="0 0 24 24"><path d="M9.3 8.4V7.2a2.7 2.7 0 0 1 5.4 0v1.2"/><path d="M9.7 8.6C7.1 10.2 5.7 13.2 6.3 16.8A1.7 1.7 0 0 0 8 18.2h8a1.7 1.7 0 0 0 1.7-1.4c.6-3.6-.8-6.6-3.4-8.2z"/></symbol>
+<symbol id="i-machine" viewBox="0 0 24 24"><path d="M12 3v3"/><rect x="7.4" y="6" width="9.2" height="13" rx="1.6"/><path d="M7.4 9.6h9.2M7.4 13h9.2M7.4 16.4h9.2"/></symbol>
+<symbol id="i-cable" viewBox="0 0 24 24"><path d="M4.6 3.2v17.6"/><circle cx="4.6" cy="6" r="1.6"/><path d="M6.2 6h5.6a2.2 2.2 0 0 1 2.2 2.2v3.2"/><rect x="11.4" y="11.6" width="5.2" height="3.4" rx="1.7"/><path d="M2.8 20.8h3.6"/></symbol>
+<symbol id="i-smith" viewBox="0 0 24 24"><path d="M5 3v18M19 3v18"/><path d="M3.4 12h17.2"/><rect x="8.4" y="9.7" width="2.2" height="4.6" rx=".9"/><rect x="13.4" y="9.7" width="2.2" height="4.6" rx=".9"/></symbol>
+<symbol id="i-body" viewBox="0 0 24 24"><circle cx="12" cy="4.6" r="2"/><path d="M12 6.8v6.4"/><path d="M7.4 9.4h9.2"/><path d="M12 13.2l-3 6.2M12 13.2l3 6.2"/></symbol>
+<symbol id="i-bench" viewBox="0 0 24 24"><path d="M3 6.4h18"/><path d="M6.6 4.6v3.6M17.4 4.6v3.6"/><rect x="5" y="12.6" width="14" height="2.6" rx="1.3"/><path d="M7.6 15.2v4.4M16.4 15.2v4.4"/></symbol>
+<symbol id="i-incline" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M6.6 4.2v3.6M17.4 4.2v3.6"/><path d="M4.5 19.6L17 12"/><path d="M7.4 17.8V21M15 13.2V21"/></symbol>
+<symbol id="i-decline" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M6.6 4.2v3.6M17.4 4.2v3.6"/><path d="M4.5 12L17 19.6"/><path d="M7.4 13.6V21M15 17.8V21"/></symbol>
+<symbol id="i-pullup" viewBox="0 0 24 24"><path d="M3 4h18"/><path d="M9 4.4v3.2M15 4.4v3.2"/><circle cx="12" cy="9.6" r="1.9"/><path d="M12 11.5v4.3"/><path d="M12 15.8l-2.4 4.2M12 15.8l2.4 4.2"/></symbol>
+<symbol id="i-dip" viewBox="0 0 24 24"><path d="M2.6 9h5.6M15.8 9h5.6"/><circle cx="12" cy="5.4" r="1.8"/><path d="M12 7.2v6"/><path d="M8.6 9v2.6M15.4 9v2.6"/><path d="M12 13.2l-2.2 3.6M12 13.2l2.2 3.6"/></symbol>
+<symbol id="i-pulldown" viewBox="0 0 24 24"><path d="M12 2.4v2.4"/><path d="M4.6 4.8h14.8"/><path d="M7.2 4.8v2.2M16.8 4.8v2.2"/><path d="M12 10v7.2"/><path d="M8.8 14L12 17.2l3.2-3.2"/></symbol>
+<symbol id="i-row" viewBox="0 0 24 24"><path d="M4.2 4.4v15.2"/><path d="M20.6 12H11.4"/><path d="M11.4 9.4v5.2"/><path d="M8.8 12H6.2"/><path d="M9 9.4L6.4 12 9 14.6"/></symbol>
+<symbol id="i-fly" viewBox="0 0 24 24"><path d="M12 4.4v15.2"/><path d="M12 9.2C8.4 9.6 5.4 8 4 4.8"/><path d="M12 9.2c3.6.4 6.6-1.2 8-4.4"/><path d="M12 13c-3.6-.4-6.6 1.2-8 4.4"/><path d="M12 13c3.6-.4 6.6 1.2 8 4.4"/></symbol>
+<symbol id="i-press" viewBox="0 0 24 24"><path d="M4 3.6h16"/><path d="M7.4 2v3.2M16.6 2v3.2"/><path d="M8.6 3.8v4.2M15.4 3.8v4.2"/><circle cx="12" cy="10.4" r="1.9"/><path d="M12 12.3v4.4"/><path d="M12 16.7l-2.2 3.8M12 16.7l2.2 3.8"/></symbol>
+<symbol id="i-lateral" viewBox="0 0 24 24"><circle cx="12" cy="4.4" r="1.9"/><path d="M12 6.3v7.4"/><path d="M5.4 9h13.2"/><rect x="2.2" y="7.6" width="2.6" height="2.8" rx="1"/><rect x="19.2" y="7.6" width="2.6" height="2.8" rx="1"/><path d="M12 13.7l-2.2 5.8M12 13.7l2.2 5.8"/></symbol>
+<symbol id="i-yraise" viewBox="0 0 24 24"><circle cx="12" cy="7.6" r="1.9"/><path d="M12 9.5v5.4"/><path d="M12 10.6L6.4 5.6M12 10.6l5.6-5"/><rect x="3.2" y="3.2" width="2.8" height="2.6" rx="1"/><rect x="18" y="3.2" width="2.8" height="2.6" rx="1"/><path d="M12 14.9l-2 4.8M12 14.9l2 4.8"/></symbol>
+<symbol id="i-frontraise" viewBox="0 0 24 24"><circle cx="8.4" cy="4.8" r="1.9"/><path d="M8.4 6.7v7.2"/><path d="M8.4 9.4h8.8"/><rect x="17.6" y="8" width="2.8" height="2.8" rx="1"/><path d="M8.4 13.9l-2 5.6M8.4 13.9l2 5.6"/></symbol>
+<symbol id="i-reardelt" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2.6"/><path d="M8.6 9.4L4.2 6.2M15.4 9.4l4.4-3.2"/><path d="M4 10.2V6h4.2M20 10.2V6h-4.2"/></symbol>
+<symbol id="i-shrug" viewBox="0 0 24 24"><circle cx="12" cy="6.4" r="1.9"/><path d="M12 8.3v4"/><path d="M6.8 10.4h10.4"/><path d="M6.8 10.4v4.2M17.2 10.4v4.2"/><rect x="5.4" y="14.8" width="2.8" height="3" rx="1.1"/><rect x="15.8" y="14.8" width="2.8" height="3" rx="1.1"/><path d="M3 8.6l1.6-1.8 1.6 1.8M17.8 8.6l1.6-1.8 1.6 1.8"/></symbol>
+<symbol id="i-uprightrow" viewBox="0 0 24 24"><path d="M4.6 14.4h14.8"/><rect x="6" y="11.8" width="2.2" height="5.2" rx=".9"/><rect x="15.8" y="11.8" width="2.2" height="5.2" rx=".9"/><path d="M12 11.4V4.4"/><path d="M8.8 7.6L12 4.4l3.2 3.2"/></symbol>
+<symbol id="i-curl" viewBox="0 0 24 24"><path d="M9 15.8h6"/><rect x="5.6" y="13.4" width="2.8" height="4.8" rx="1.1"/><rect x="15.6" y="13.4" width="2.8" height="4.8" rx="1.1"/><path d="M5.4 10.4a7.4 7.4 0 0 1 13.2 0"/><path d="M18.8 6.6v3.8h-3.8"/></symbol>
+<symbol id="i-triceps" viewBox="0 0 24 24"><path d="M12 2.6v6.2"/><path d="M7.4 8.8h9.2"/><path d="M9.2 8.8v2M14.8 8.8v2"/><path d="M12 13.2v6.4"/><path d="M8.8 16.4L12 19.6l3.2-3.2"/></symbol>
+<symbol id="i-squat" viewBox="0 0 24 24"><path d="M3.6 7.8h16.8"/><path d="M6.8 6v3.6M17.2 6v3.6"/><circle cx="12" cy="3.8" r="1.7"/><path d="M12 9.6l1.8 3.8H8.6"/><path d="M8.6 13.4v6.2"/><path d="M6.4 19.6h4.6"/></symbol>
+<symbol id="i-legpress" viewBox="0 0 24 24"><path d="M21.4 4.4L13 10.6"/><path d="M18.8 2.6l3.4 2.6"/><path d="M13 10.6l-4.8 3.2H4.4"/><path d="M4.4 13.8v5.6"/><path d="M2.6 19.4h6.4"/></symbol>
+<symbol id="i-lunge" viewBox="0 0 24 24"><circle cx="11" cy="4.2" r="1.8"/><path d="M11 6v4.8"/><path d="M11 10.8l4.6 3.6v5.2"/><path d="M11 10.8L6.6 14.2v2.6L4 19.6"/></symbol>
+<symbol id="i-legext" viewBox="0 0 24 24"><path d="M3.6 5.2v9.4"/><path d="M3.6 14.6h6.8"/><path d="M10.4 14.6l5.4-3.4"/><circle cx="17.8" cy="9.8" r="1.9"/><path d="M11.4 19a7.4 7.4 0 0 0 4.2-5.6"/><path d="M3.6 20.6h5"/></symbol>
+<symbol id="i-legcurl" viewBox="0 0 24 24"><path d="M3 17.4h13.4"/><path d="M4.2 13.4h8.2"/><circle cx="3" cy="13.4" r="1.6"/><path d="M12.4 13.4l4.4-4.2"/><circle cx="18.2" cy="7.8" r="1.9"/><path d="M16.6 14.8a7 7 0 0 0 1.2-4.2"/></symbol>
+<symbol id="i-calf" viewBox="0 0 24 24"><path d="M4.6 19.4h14.8"/><path d="M9 19.4v-4.6h6v4.6"/><path d="M12 12.4V4.4"/><path d="M8.6 7.8L12 4.4l3.4 3.4"/></symbol>
+<symbol id="i-hinge" viewBox="0 0 24 24"><circle cx="5.4" cy="17.4" r="3.2"/><circle cx="18.6" cy="17.4" r="3.2"/><path d="M8.6 17.4h6.8"/><path d="M12 13.2V4.6"/><path d="M8.8 7.8L12 4.6l3.2 3.2"/></symbol>
+<symbol id="i-hipthrust" viewBox="0 0 24 24"><path d="M3.2 19.8c2.6-8.2 15-8.2 17.6 0"/><path d="M6.2 10.6h11.6"/><circle cx="8.2" cy="10.6" r="1.9"/><circle cx="15.8" cy="10.6" r="1.9"/></symbol>
+<symbol id="i-abduct" viewBox="0 0 24 24"><circle cx="12" cy="4.4" r="1.9"/><path d="M12 6.3v5.4"/><path d="M12 11.7l-5.4 5.8M12 11.7l5.4 5.8"/><path d="M4.4 13.6L2.6 15.4l1.8 1.8M19.6 13.6l1.8 1.8-1.8 1.8"/></symbol>
+<symbol id="i-crunch" viewBox="0 0 24 24"><path d="M2.6 19.8h18.8"/><path d="M5.4 19.8c0-6.2 4.8-10.4 11-10.4"/><circle cx="18" cy="7.6" r="1.9"/><path d="M9.6 19.8c0-3.4 2.4-6 5.6-6.6"/></symbol>
+<symbol id="i-plank" viewBox="0 0 24 24"><path d="M2.6 19.6h18.8"/><circle cx="5" cy="9.6" r="1.9"/><path d="M6.8 10.8h9.4l3.2 5"/><path d="M6.8 10.8v4.6H4.2"/></symbol>
+<symbol id="i-legraise" viewBox="0 0 24 24"><path d="M3 4h18"/><path d="M9.6 4.4v3M14.4 4.4v3"/><circle cx="12" cy="9.4" r="1.9"/><path d="M12 11.3v3.3"/><path d="M12 14.6h5.8"/><path d="M17.8 13v3.2"/></symbol>
+<symbol id="i-twist" viewBox="0 0 24 24"><path d="M5.4 8.8A7.6 7.6 0 0 1 18.6 8.8"/><path d="M18.8 5.2v3.8H15"/><path d="M18.6 15.2A7.6 7.6 0 0 1 5.4 15.2"/><path d="M5.2 18.8V15h3.8"/></symbol>
+<symbol id="i-abwheel" viewBox="0 0 24 24"><circle cx="12" cy="14.6" r="4.4"/><circle cx="12" cy="14.6" r="1.1"/><path d="M7.6 14.6H4.2M16.4 14.6h3.4"/><path d="M4.2 12.4v4.4M19.8 12.4v4.4"/></symbol>
+<symbol id="i-burpee" viewBox="0 0 24 24"><circle cx="12" cy="4" r="1.9"/><path d="M12 5.9v5.2"/><path d="M12 7.6L6.8 4.2M12 7.6l5.2-3.4"/><path d="M12 11.1l-3.6 5.4M12 11.1l3.6 5.4"/><path d="M4 20.2h16"/></symbol>
+<symbol id="i-swing" viewBox="0 0 24 24"><path d="M10.6 13.4v-.9a1.6 1.6 0 0 1 3.2 0v.9"/><path d="M10.8 13.6c-1.7 1.1-2.6 3-2.2 5.2a1.2 1.2 0 0 0 1.2 1h4.8a1.2 1.2 0 0 0 1.2-1c.4-2.2-.5-4.1-2.2-5.2z"/><path d="M6.2 12.8A8.2 8.2 0 0 1 16.8 4.4"/><path d="M13.8 3.4l3.4 1-1 3.4"/></symbol>
+<symbol id="i-clean" viewBox="0 0 24 24"><path d="M3.6 8h16.8"/><rect x="5.4" y="5" width="2.4" height="6" rx="1"/><rect x="16.2" y="5" width="2.4" height="6" rx="1"/><path d="M12 20.4v-6.8"/><path d="M8.8 16.8L12 13.6l3.2 3.2"/></symbol>
+<symbol id="i-carry" viewBox="0 0 24 24"><circle cx="12" cy="4.2" r="1.8"/><path d="M12 6v6.4"/><path d="M12 12.8l-2.6 6.6M12 12.8l2.6 6.6"/><path d="M7.4 8.4h9.2"/><path d="M7.4 8.4v4.6M16.6 8.4v4.6"/><rect x="5.8" y="13.2" width="3.2" height="3" rx="1.2"/><rect x="15" y="13.2" width="3.2" height="3" rx="1.2"/></symbol>
+<symbol id="i-rope2" viewBox="0 0 24 24"><path d="M2.6 8.4c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0"/><path d="M2.6 15.6c2-2.4 4-2.4 6 0s4 2.4 6 0 4-2.4 6 0"/></symbol>
+<symbol id="i-slam" viewBox="0 0 24 24"><circle cx="12" cy="15.6" r="4.2"/><path d="M12 3.2v5.8"/><path d="M8.8 6.2L12 9.4l3.2-3.2"/></symbol>
+<symbol id="i-sled" viewBox="0 0 24 24"><rect x="3.4" y="9.6" width="9.4" height="7.2" rx="1.4"/><path d="M2.6 19.8h18.8"/><path d="M14.6 13.2h5.8"/><path d="M17.8 10.4l2.8 2.8-2.8 2.8"/></symbol>
+<symbol id="i-boxjump" viewBox="0 0 24 24"><rect x="11.6" y="12.6" width="8.8" height="7" rx="1.4"/><circle cx="6" cy="4.8" r="1.8"/><path d="M6 6.6v4.6"/><path d="M3 8.6h6"/><path d="M6 11.2l-2.2 4.4M6 11.2l2.8 3.2"/></symbol>
+<symbol id="i-backext" viewBox="0 0 24 24"><path d="M4.6 19.6h14.8"/><path d="M7.4 19.6v-5.2"/><path d="M4.4 10.8l6.4 3.6"/><circle cx="16.8" cy="7" r="1.8"/><path d="M15.4 8.4l-4.8 5.4"/></symbol>
+<symbol id="i-run" viewBox="0 0 24 24"><circle cx="14.8" cy="4.6" r="1.9"/><path d="M13.4 7.6l-2.6 3.4 2.8 2.6"/><path d="M13.6 13.6l-.6 3.4-3.4 3.4"/><path d="M13.6 13.6l3 2.6.6 4.2"/><path d="M10.8 11L6.6 9.6"/><path d="M12.6 9.2l4.4 1.4"/></symbol>
+<symbol id="i-walk" viewBox="0 0 24 24"><circle cx="12.6" cy="4.4" r="1.9"/><path d="M12.6 6.3v6.2"/><path d="M12.6 12.5l-2.6 3.8-1.4 3.6"/><path d="M12.6 12.5l2.8 3.6.4 3.8"/><path d="M12.6 8.2L8.8 10.6"/><path d="M12.6 8.2l3.6 2"/></symbol>
+<symbol id="i-hill" viewBox="0 0 24 24"><path d="M3 19.6h18"/><path d="M4.6 17.4L18 5.6"/><path d="M12.6 5.6H18v5.4"/></symbol>
+<symbol id="i-stairs" viewBox="0 0 24 24"><path d="M3 19.6h4.6v-4.2h4.6v-4.2h4.6V7h4.2"/></symbol>
+<symbol id="i-bike" viewBox="0 0 24 24"><circle cx="5.6" cy="16.6" r="3.2"/><circle cx="18.4" cy="16.6" r="3.2"/><path d="M5.6 16.6l4-7.4h5l3.8 7.4"/><path d="M8.6 9.2h4.2"/><path d="M12 16.6l2.6-7.4"/></symbol>
+<symbol id="i-elliptical" viewBox="0 0 24 24"><ellipse cx="12" cy="17" rx="8.4" ry="3"/><circle cx="12" cy="4.8" r="1.9"/><path d="M12 6.7v5.6"/><path d="M7.6 9h8.8"/><path d="M12 12.3l-3.2 3.6M12 12.3l3.2 3.6"/></symbol>
+<symbol id="i-jumprope" viewBox="0 0 24 24"><circle cx="12" cy="5.4" r="1.9"/><path d="M12 7.3v5.4"/><path d="M8.6 9.4h6.8"/><path d="M12 12.7l-2 4.6M12 12.7l2 4.6"/><path d="M8.6 9.4C4.2 11 3.2 18.4 12 18.4s7.4-7.4 3-9"/></symbol>
+<symbol id="i-swim" viewBox="0 0 24 24"><path d="M2.6 18.6c2-1.5 4-1.5 6 0s4 1.5 6 0 4-1.5 6 0"/><circle cx="7" cy="8.4" r="1.9"/><path d="M8.8 9.8l6.4 2.6"/><path d="M9.4 8L14 4"/><path d="M15.2 12.4l4.2 1.2"/></symbol>
+<symbol id="i-hike" viewBox="0 0 24 24"><path d="M2.6 19.6h18.8"/><path d="M3.4 19.6l5.8-9.2 3.6 5.2 2.6-3.6 4.8 7.6"/><circle cx="18" cy="5.4" r="1.6"/></symbol>
+<symbol id="i-rower" viewBox="0 0 24 24"><circle cx="5.2" cy="8.4" r="3.4"/><path d="M8.6 8.4h5.4"/><path d="M14 6.4v4"/><path d="M2.6 18.6h18.8"/><rect x="11.8" y="14.4" width="5.8" height="2.8" rx="1.2"/><path d="M5.2 11.8v6.8"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13.4 2.6L5.8 13.4h5.4l-1 8L18.2 10.6h-5.4z"/></symbol>
+<symbol id="i-boxing" viewBox="0 0 24 24"><path d="M7.6 7.4a3.6 3.6 0 0 1 3.6-3.6h3.2a4 4 0 0 1 4 4v3.4a4 4 0 0 1-1.4 3l-.8.7v2.3a1.6 1.6 0 0 1-1.6 1.6h-5a1.6 1.6 0 0 1-1.6-1.6v-2.6"/><path d="M7.6 9.6H6.2a2 2 0 0 0 0 4h1.4"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.2l2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.7l6.1-.9z"/></symbol>
+
+<symbol id="i-list" viewBox="0 0 24 24"><path d="M8.4 6.4h12M8.4 12h12M8.4 17.6h12"/><circle cx="4.4" cy="6.4" r="1.2"/><circle cx="4.4" cy="12" r="1.2"/><circle cx="4.4" cy="17.6" r="1.2"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M3.6 20h16.8"/><rect x="5" y="11" width="3.6" height="6.4" rx="1"/><rect x="10.2" y="6.4" width="3.6" height="11" rx="1"/><rect x="15.4" y="13.6" width="3.6" height="3.8" rx="1"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M4.6 20.2c1.4-4 4.2-5.8 7.4-5.8s6 1.8 7.4 5.8"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+<symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M9.6 7V4.8h4.8V7"/><path d="M6.4 7l1 12.2a1.8 1.8 0 0 0 1.8 1.6h5.6a1.8 1.8 0 0 0 1.8-1.6L17.6 7"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 7.2V12l3.2 2"/></symbol>
+<symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3.4" y="5.2" width="17.2" height="15.4" rx="2.4"/><path d="M3.4 10h17.2"/><path d="M8 3.4v3.6M16 3.4v3.6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.4"/><path d="M15.8 15.8l4.8 4.8"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M16.4 3.9l3.7 3.7"/><path d="M4 20l1-4.4L16 4.6a1.6 1.6 0 0 1 2.3 0l1.1 1.1a1.6 1.6 0 0 1 0 2.3L8.4 19z"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.6v11.6"/><path d="M7.6 11l4.4 4.4 4.4-4.4"/><path d="M4.4 19.8h15.2"/></symbol>
+<symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15.6V4"/><path d="M7.6 8.4L12 4l4.4 4.4"/><path d="M4.4 19.8h15.2"/></symbol>
+<symbol id="i-scale" viewBox="0 0 24 24"><rect x="3.4" y="4.6" width="17.2" height="14.8" rx="3"/><path d="M8 11.6a4.4 4.4 0 0 1 8 0"/><path d="M12 11.6l2.4-2.8"/></symbol>
+<symbol id="i-chevron" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.8l4.6 4.6L19 7.6"/></symbol>
+<symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3.2s5.6 4 5.6 9a5.6 5.6 0 1 1-11.2 0c0-2 1-3.6 1.8-4.6.4 1.6 1.4 2.4 2.2 2.4 1.4 0 1.6-3.2 1.6-6.8z"/></symbol>
+<symbol id="i-trophy" viewBox="0 0 24 24"><path d="M7.6 4.2h8.8v4.4a4.4 4.4 0 0 1-8.8 0z"/><path d="M7.6 5.6H5.2a2.4 2.4 0 0 0 2.4 4"/><path d="M16.4 5.6h2.4a2.4 2.4 0 0 1-2.4 4"/><path d="M12 13v3.4"/><path d="M8.4 20.2h7.2l-.8-3.8H9.2z"/></symbol>
+<symbol id="i-undo" viewBox="0 0 24 24"><path d="M4.6 9.4h9.8a5 5 0 1 1 0 10H8.4"/><path d="M8.2 5.4l-4 4 4 4"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.6" y="8.6" width="11.8" height="11.8" rx="2.4"/><path d="M15.4 5.4H5.6a2 2 0 0 0-2 2v9.8"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M12 11.2v5"/><circle cx="12" cy="7.8" r=".95" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.8l9 15.8H3z"/><path d="M12 9.6v4.2"/><circle cx="12" cy="16.8" r=".95" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><path d="M7.6 4.8l11 7.2-11 7.2z"/></symbol>
+<symbol id="i-stop" viewBox="0 0 24 24"><rect x="6.4" y="6.4" width="11.2" height="11.2" rx="2"/></symbol>
+<symbol id="i-db" viewBox="0 0 24 24"><path d="M5 6.8c0-1.6 3.1-2.8 7-2.8s7 1.2 7 2.8-3.1 2.8-7 2.8-7-1.2-7-2.8z"/><path d="M5 6.8v10.4c0 1.6 3.1 2.8 7 2.8s7-1.2 7-2.8V6.8"/><path d="M5 12c0 1.6 3.1 2.8 7 2.8s7-1.2 7-2.8"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M18.9 14.4a1.5 1.5 0 0 0 .3 1.7l.1.1a1.9 1.9 0 1 1-2.7 2.7l-.1-.1a1.5 1.5 0 0 0-2.6 1.1v.2a1.9 1.9 0 1 1-3.8 0v-.1a1.5 1.5 0 0 0-2.6-1.1l-.1.1a1.9 1.9 0 1 1-2.7-2.7l.1-.1a1.5 1.5 0 0 0-1.1-2.6h-.2a1.9 1.9 0 1 1 0-3.8h.1a1.5 1.5 0 0 0 1.1-2.6l-.1-.1a1.9 1.9 0 1 1 2.7-2.7l.1.1a1.5 1.5 0 0 0 2.6-1.1v-.2a1.9 1.9 0 1 1 3.8 0v.1a1.5 1.5 0 0 0 2.6 1.1l.1-.1a1.9 1.9 0 1 1 2.7 2.7l-.1.1a1.5 1.5 0 0 0 1.1 2.6h.2a1.9 1.9 0 1 1 0 3.8h-.1a1.5 1.5 0 0 0-1.4.9z"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 3.4l8.6 4.4-8.6 4.4-8.6-4.4z"/><path d="M3.4 12.2l8.6 4.4 8.6-4.4"/><path d="M3.4 16.4l8.6 4.4 8.6-4.4"/></symbol>
+<symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.4A8.6 8.6 0 1 1 9.6 4 6.8 6.8 0 0 0 20 14.4z"/></symbol>
+<symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.6v2.6M12 18.8v2.6M4.4 12H1.8M22.2 12h-2.6M6.7 6.7L4.9 4.9M19.1 19.1l-1.8-1.8M6.7 17.3l-1.8 1.8M19.1 4.9l-1.8 1.8"/></symbol>
+<symbol id="i-trend" viewBox="0 0 24 24"><path d="M3.4 16.6l5.2-5.4 3.6 3.2 7.4-7.8"/><path d="M14.6 6.6h5.4V12"/></symbol>
+<symbol id="i-ruler" viewBox="0 0 24 24"><rect x="2.6" y="8.4" width="18.8" height="7.2" rx="1.8"/><path d="M7 8.4v3M11 8.4v4.4M15 8.4v3M19 8.4v4.4"/></symbol>
+</defs></svg>
+<div id="app">
+  <header class="topbar">
+    <div>
+      <div class="app-title"><svg class="ico"><use href="#i-dumbbell"></use></svg>健身记录</div>
+      <div class="today" id="todayLabel">今天 · 0 条记录</div>
+    </div>
+    <button class="kcal-badge" id="kcalBadge" aria-label="今日消耗，点击查看统计">
+      <div><span class="kcal-num" id="todayKcal">0</span><span class="kcal-unit">kcal</span></div>
+      <div class="kcal-label" id="kcalLabel">今日消耗</div>
+    </button>
+  </header>
+
+  <main id="page-record" class="page active">
+    <div class="date-bar">
+      <span class="db-date" id="dbDate"><svg class="ico"><use href="#i-calendar"></use></svg>今天</span>
+      <input type="date" class="db-input" id="dbDateInput" aria-label="记录日期">
+      <button class="db-today" id="dbToday">回到今天</button>
+    </div>
+    <div class="past-banner" id="pastBanner">
+      <svg class="ico"><use href="#i-alert"></use></svg>
+      <span id="pastBannerTxt">正在补记 10月5日 的训练</span>
+    </div>
+    <div class="search-bar" id="searchBar">
+      <svg class="ico"><use href="#i-search"></use></svg>
+      <input type="search" id="searchInput" placeholder="搜索动作，如「侧平举」「坐姿划船」" aria-label="搜索动作">
+      <button class="search-clear" id="searchClear" aria-label="清空搜索"><svg class="ico"><use href="#i-close"></use></svg></button>
+    </div>
+    <div class="cat-scroll" id="catScroll"></div>
+    <div class="action-grid" id="actionGrid"></div>
+    <div class="today-list" id="todayList"></div>
+  </main>
+
+  <main id="page-history" class="page"></main>
+  <main id="page-stats" class="page"></main>
+  <main id="page-profile" class="page"></main>
+
+  <nav class="tabbar">
+    <button class="tab active" data-tab="record"><svg class="ico"><use href="#i-dumbbell"></use></svg>记录</button>
+    <button class="tab" data-tab="history"><svg class="ico"><use href="#i-list"></use></svg>历史</button>
+    <button class="tab" data-tab="stats"><svg class="ico"><use href="#i-chart"></use></svg>统计</button>
+    <button class="tab" data-tab="profile"><svg class="ico"><use href="#i-user"></use></svg>我的</button>
+  </nav>
+</div>
+
+<div class="rest-bar" id="restBar">
+  <div class="rest-ring">
+    <svg viewBox="0 0 40 40"><circle class="bgc" cx="20" cy="20" r="17"></circle><circle class="fgc" id="restRing" cx="20" cy="20" r="17"></circle></svg>
+    <span class="rest-time" id="restTime">90</span>
+  </div>
+  <div class="rest-txt">
+    <div class="t1" id="restT1">组间休息</div>
+    <div class="t2" id="restT2">下一组准备</div>
+  </div>
+  <button class="rest-btn" id="restPlus">+30s</button>
+  <button class="rest-btn" id="restStop">结束</button>
+</div>
+
+<div class="drawer-mask" id="drawerMask"></div>
+<div class="drawer" id="drawer" role="dialog" aria-modal="true" aria-label="记录训练">
+  <div class="drag-handle"></div>
+  <div class="drawer-head">
+    <div>
+      <div class="drawer-title" id="drawerTitle">动作</div>
+      <div class="drawer-sub" id="drawerSub"></div>
+    </div>
+    <button class="drawer-close" id="drawerClose" aria-label="关闭"><svg class="ico"><use href="#i-close"></use></svg></button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+</div>
+
+<div id="toast"><span class="tt"></span><button class="undo">撤销</button></div>
+
+<div class="modal-mask" id="modalMask"></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true"></div>
+<script>
+"use strict";
+/* ================= 工具 ================= */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const pad2 = n => String(n).padStart(2, '0');
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (v, d) => { const n = parseFloat(v); return Number.isFinite(n) ? n : d; };
+
+function dateKey(d){ return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function todayStr(){ return dateKey(new Date()); }
+function parseDate(iso){ const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
+function daysBetween(a, b){ return Math.round((parseDate(b) - parseDate(a)) / 86400000); }
+function shiftDate(iso, n){ const d = parseDate(iso); d.setDate(d.getDate() + n); return dateKey(d); }
+function fmtDate(iso){
+  const dt = parseDate(iso);
+  const wk = ['日', '一', '二', '三', '四', '五', '六'][dt.getDay()];
+  return `${dt.getMonth() + 1}月${dt.getDate()}日 周${wk}`;
+}
+function fmtDateShort(iso){ const dt = parseDate(iso); return `${dt.getMonth() + 1}/${dt.getDate()}`; }
+function relDay(iso){
+  const n = daysBetween(iso, todayStr());
+  if (n === 0) return '今天';
+  if (n === 1) return '昨天';
+  if (n === 2) return '前天';
+  return n > 0 ? `${n}天前` : `${-n}天后`;
+}
+function fmtHM(min){
+  min = Math.round(min);
+  if (min < 60) return min + '分钟';
+  const h = Math.floor(min / 60), m = min % 60;
+  return h + '小时' + (m ? ' ' + m + '分' : '');
+}
+function fmtMMSS(s){ s = Math.max(0, Math.round(s)); return pad2(Math.floor(s / 60)) + ':' + pad2(s % 60); }
+function fmtKg(v){ return (Math.round(v * 10) / 10).toString(); }
+function fmtVol(v){ return v >= 10000 ? (v / 1000).toFixed(1) + 't' : Math.round(v) + 'kg'; }
+function ico(name, cls){ return `<svg class="ico ${cls || ''}" aria-hidden="true"><use href="#i-${name}"></use></svg>`; }
+
+/* ================= 分类 ================= */
+const CATS = [
+  { id: 'chest',    name: '胸部',     ico: 'bench' },
+  { id: 'back',     name: '背部',     ico: 'pulldown' },
+  { id: 'shoulder', name: '肩部',     ico: 'press' },
+  { id: 'arm',      name: '手臂',     ico: 'curl' },
+  { id: 'leg',      name: '腿部',     ico: 'squat' },
+  { id: 'glute',    name: '臀部',     ico: 'hipthrust' },
+  { id: 'core',     name: '腹部核心', ico: 'crunch' },
+  { id: 'full',     name: '全身',     ico: 'burpee' },
+  { id: 'cardio',   name: '有氧',     ico: 'run' },
+];
+const catName = id => (CATS.find(c => c.id === id) || { name: id || '其他' }).name;
+
+/* 负重方式：bar=器械/杠铃总重  db=哑铃单只  machine=配重片  cable=绳索配重  kb=壶铃  bw=自重 */
+const LOAD_TXT = { bar: '杠铃总重（含杆）', db: '单只哑铃重量', machine: '配重片重量', cable: '绳索配重', kb: '壶铃重量', bw: '自重' };
+
+/* 动作库：c = 参考重量系数（×体重 ≈ 可做6-8次的重量），0 表示自重 */
+const BUILTIN = [
+  /* ===== 胸部 ===== */
+  { id:'b_chest_1',  cat:'chest', name:'杠铃卧推',      ico:'bench',    c:1.00, met:5.0, compound:1, load:'bar' },
+  { id:'b_chest_3',  cat:'chest', name:'上斜杠铃卧推',  ico:'incline',  c:0.80, met:4.8, compound:1, load:'bar' },
+  { id:'b_chest_4',  cat:'chest', name:'下斜杠铃卧推',  ico:'decline',  c:0.95, met:4.6, compound:1, load:'bar' },
+  { id:'b_chest_14', cat:'chest', name:'史密斯卧推',    ico:'smith',    c:0.90, met:4.8, compound:1, load:'bar' },
+  { id:'b_chest_2',  cat:'chest', name:'哑铃卧推',      ico:'dumbbell', c:0.45, met:5.0, compound:1, load:'db' },
+  { id:'b_chest_9',  cat:'chest', name:'上斜哑铃卧推',  ico:'incline',  c:0.36, met:4.8, compound:1, load:'db' },
+  { id:'b_chest_10', cat:'chest', name:'坐姿推胸器械',  ico:'machine',  c:0.85, met:4.6, compound:1, load:'machine' },
+  { id:'b_chest_11', cat:'chest', name:'上斜推胸器械',  ico:'machine',  c:0.70, met:4.5, compound:1, load:'machine' },
+  { id:'b_chest_5',  cat:'chest', name:'哑铃飞鸟',      ico:'fly',      c:0.22, met:4.0, compound:0, load:'db' },
+  { id:'b_chest_15', cat:'chest', name:'上斜哑铃飞鸟',  ico:'fly',      c:0.18, met:4.0, compound:0, load:'db' },
+  { id:'b_chest_6',  cat:'chest', name:'蝴蝶机夹胸',    ico:'machine',  c:0.55, met:4.0, compound:0, load:'machine' },
+  { id:'b_chest_12', cat:'chest', name:'高位绳索夹胸',  ico:'cable',    c:0.20, met:4.0, compound:0, load:'cable' },
+  { id:'b_chest_13', cat:'chest', name:'低位绳索夹胸',  ico:'cable',    c:0.18, met:4.0, compound:0, load:'cable' },
+  { id:'b_chest_7',  cat:'chest', name:'俯卧撑',        ico:'body',     c:0,    met:3.8, compound:1, load:'bw' },
+  { id:'b_chest_8',  cat:'chest', name:'双杠臂屈伸',    ico:'dip',      c:0,    met:4.5, compound:1, load:'bw' },
+  { id:'b_chest_16', cat:'chest', name:'助力臂屈伸机',  ico:'machine',  c:0,    met:4.3, compound:1, load:'bw' },
+
+  /* ===== 背部 ===== */
+  { id:'b_back_1',  cat:'back', name:'引体向上',        ico:'pullup',   c:0,    met:5.0, compound:1, load:'bw' },
+  { id:'b_back_13', cat:'back', name:'助力引体机',      ico:'machine',  c:0,    met:4.6, compound:1, load:'bw' },
+  { id:'b_back_2',  cat:'back', name:'宽握高位下拉',    ico:'pulldown', c:0.80, met:5.0, compound:1, load:'machine' },
+  { id:'b_back_10', cat:'back', name:'窄握下拉（V把）', ico:'pulldown', c:0.75, met:4.8, compound:1, load:'machine' },
+  { id:'b_back_16', cat:'back', name:'锤式器械下拉',    ico:'machine',  c:0.70, met:4.8, compound:1, load:'machine' },
+  { id:'b_back_11', cat:'back', name:'单臂高位下拉',    ico:'cable',    c:0.30, met:4.5, compound:1, load:'cable' },
+  { id:'b_back_9',  cat:'back', name:'坐姿划船器械',    ico:'machine',  c:0.85, met:4.6, compound:1, load:'machine' },
+  { id:'b_back_5',  cat:'back', name:'绳索坐姿划船',    ico:'row',      c:0.80, met:4.5, compound:1, load:'cable' },
+  { id:'b_back_12', cat:'back', name:'胸部支撑划船',    ico:'machine',  c:0.60, met:4.6, compound:1, load:'machine' },
+  { id:'b_back_3',  cat:'back', name:'杠铃划船',        ico:'row',      c:0.75, met:5.0, compound:1, load:'bar' },
+  { id:'b_back_8',  cat:'back', name:'T杠划船',         ico:'row',      c:0.70, met:5.0, compound:1, load:'bar' },
+  { id:'b_back_15', cat:'back', name:'史密斯划船',      ico:'smith',    c:0.70, met:4.8, compound:1, load:'bar' },
+  { id:'b_back_4',  cat:'back', name:'哑铃单臂划船',    ico:'dumbbell', c:0.40, met:4.5, compound:1, load:'db' },
+  { id:'b_back_17', cat:'back', name:'单臂绳索划船',    ico:'cable',    c:0.28, met:4.4, compound:1, load:'cable' },
+  { id:'b_back_6',  cat:'back', name:'硬拉',            ico:'hinge',    c:1.75, met:5.8, compound:1, load:'bar' },
+  { id:'b_back_7',  cat:'back', name:'直臂下压',        ico:'cable',    c:0.30, met:4.0, compound:0, load:'cable' },
+  { id:'b_back_14', cat:'back', name:'山羊挺身',        ico:'backext',  c:0,    met:3.8, compound:0, load:'bw' },
+
+  /* ===== 肩部 ===== */
+  { id:'b_shoulder_1',  cat:'shoulder', name:'站姿杠铃推举',  ico:'press',      c:0.55, met:5.0, compound:1, load:'bar' },
+  { id:'b_shoulder_2',  cat:'shoulder', name:'坐姿哑铃推举',  ico:'press',      c:0.25, met:5.0, compound:1, load:'db' },
+  { id:'b_shoulder_9',  cat:'shoulder', name:'器械推肩',      ico:'machine',    c:0.45, met:4.6, compound:1, load:'machine' },
+  { id:'b_shoulder_10', cat:'shoulder', name:'阿诺德推举',    ico:'press',      c:0.22, met:5.0, compound:1, load:'db' },
+  { id:'b_shoulder_16', cat:'shoulder', name:'单臂哑铃推举',  ico:'press',      c:0.22, met:4.8, compound:1, load:'db' },
+  { id:'b_shoulder_3',  cat:'shoulder', name:'哑铃侧平举',    ico:'lateral',    c:0.12, met:4.0, compound:0, load:'db' },
+  { id:'b_shoulder_8',  cat:'shoulder', name:'Y字侧平举',     ico:'yraise',     c:0.07, met:4.0, compound:0, load:'db' },
+  { id:'b_shoulder_11', cat:'shoulder', name:'绳索侧平举',    ico:'cable',      c:0.10, met:4.0, compound:0, load:'cable' },
+  { id:'b_shoulder_12', cat:'shoulder', name:'器械侧平举',    ico:'machine',    c:0.25, met:4.0, compound:0, load:'machine' },
+  { id:'b_shoulder_4',  cat:'shoulder', name:'前平举',        ico:'frontraise', c:0.12, met:4.0, compound:0, load:'db' },
+  { id:'b_shoulder_5',  cat:'shoulder', name:'俯身反向飞鸟',  ico:'reardelt',   c:0.10, met:4.0, compound:0, load:'db' },
+  { id:'b_shoulder_13', cat:'shoulder', name:'蝴蝶机反向飞鸟',ico:'machine',    c:0.30, met:4.0, compound:0, load:'machine' },
+  { id:'b_shoulder_6',  cat:'shoulder', name:'绳索面拉',      ico:'cable',      c:0.25, met:4.0, compound:0, load:'cable' },
+  { id:'b_shoulder_15', cat:'shoulder', name:'直立划船',      ico:'uprightrow', c:0.40, met:4.3, compound:1, load:'bar' },
+  { id:'b_shoulder_7',  cat:'shoulder', name:'杠铃耸肩',      ico:'shrug',      c:1.20, met:4.5, compound:0, load:'bar' },
+  { id:'b_shoulder_14', cat:'shoulder', name:'哑铃耸肩',      ico:'shrug',      c:0.45, met:4.3, compound:0, load:'db' },
+
+  /* ===== 手臂 ===== */
+  { id:'b_arm_1',  cat:'arm', name:'杠铃弯举',      ico:'curl',     c:0.35, met:4.0, compound:0, load:'bar' },
+  { id:'b_arm_9',  cat:'arm', name:'EZ杠弯举',      ico:'curl',     c:0.33, met:4.0, compound:0, load:'bar' },
+  { id:'b_arm_18', cat:'arm', name:'反握弯举',      ico:'curl',     c:0.25, met:4.0, compound:0, load:'bar' },
+  { id:'b_arm_2',  cat:'arm', name:'哑铃弯举',      ico:'dumbbell', c:0.15, met:4.0, compound:0, load:'db' },
+  { id:'b_arm_3',  cat:'arm', name:'锤式弯举',      ico:'dumbbell', c:0.16, met:4.0, compound:0, load:'db' },
+  { id:'b_arm_12', cat:'arm', name:'上斜哑铃弯举',  ico:'incline',  c:0.12, met:4.0, compound:0, load:'db' },
+  { id:'b_arm_8',  cat:'arm', name:'集中弯举',      ico:'curl',     c:0.12, met:4.0, compound:0, load:'db' },
+  { id:'b_arm_4',  cat:'arm', name:'牧师椅弯举',    ico:'curl',     c:0.28, met:4.0, compound:0, load:'bar' },
+  { id:'b_arm_10', cat:'arm', name:'器械弯举',      ico:'machine',  c:0.30, met:4.0, compound:0, load:'machine' },
+  { id:'b_arm_11', cat:'arm', name:'绳索弯举',      ico:'cable',    c:0.30, met:4.0, compound:0, load:'cable' },
+  { id:'b_arm_17', cat:'arm', name:'腕弯举',        ico:'dumbbell', c:0.18, met:3.5, compound:0, load:'db' },
+  { id:'b_arm_5',  cat:'arm', name:'绳索下压',      ico:'triceps',  c:0.35, met:4.0, compound:0, load:'cable' },
+  { id:'b_arm_14', cat:'arm', name:'反握绳索下压',  ico:'triceps',  c:0.25, met:4.0, compound:0, load:'cable' },
+  { id:'b_arm_16', cat:'arm', name:'绳索过顶臂屈伸',ico:'cable',    c:0.28, met:4.0, compound:0, load:'cable' },
+  { id:'b_arm_13', cat:'arm', name:'仰卧臂屈伸',    ico:'barbell',  c:0.30, met:4.2, compound:0, load:'bar' },
+  { id:'b_arm_7',  cat:'arm', name:'颈后臂屈伸',    ico:'triceps',  c:0.20, met:4.0, compound:0, load:'db' },
+  { id:'b_arm_15', cat:'arm', name:'器械臂屈伸',    ico:'machine',  c:0.40, met:4.0, compound:0, load:'machine' },
+  { id:'b_arm_6',  cat:'arm', name:'窄距卧推',      ico:'bench',    c:0.85, met:4.6, compound:1, load:'bar' },
+
+  /* ===== 腿部 ===== */
+  { id:'b_leg_1',  cat:'leg', name:'杠铃深蹲',      ico:'squat',    c:1.50, met:5.8, compound:1, load:'bar' },
+  { id:'b_leg_9',  cat:'leg', name:'前蹲',          ico:'squat',    c:1.10, met:5.6, compound:1, load:'bar' },
+  { id:'b_leg_10', cat:'leg', name:'史密斯深蹲',    ico:'smith',    c:1.30, met:5.2, compound:1, load:'bar' },
+  { id:'b_leg_3',  cat:'leg', name:'哈克深蹲',      ico:'machine',  c:1.60, met:5.2, compound:1, load:'machine' },
+  { id:'b_leg_18', cat:'leg', name:'器械V蹲',       ico:'machine',  c:1.40, met:5.0, compound:1, load:'machine' },
+  { id:'b_leg_2',  cat:'leg', name:'腿举',          ico:'legpress', c:2.20, met:5.0, compound:1, load:'machine' },
+  { id:'b_leg_12', cat:'leg', name:'高脚杯深蹲',    ico:'kettlebell', c:0.40, met:5.0, compound:1, load:'db' },
+  { id:'b_leg_16', cat:'leg', name:'哑铃相扑深蹲',  ico:'squat',    c:0.45, met:5.0, compound:1, load:'db' },
+  { id:'b_leg_4',  cat:'leg', name:'箭步蹲',        ico:'lunge',    c:0.30, met:5.2, compound:1, load:'db' },
+  { id:'b_leg_17', cat:'leg', name:'行走箭步蹲',    ico:'lunge',    c:0.25, met:5.6, compound:1, load:'db' },
+  { id:'b_leg_8',  cat:'leg', name:'罗马尼亚硬拉',  ico:'hinge',    c:1.25, met:5.5, compound:1, load:'bar' },
+  { id:'b_leg_15', cat:'leg', name:'直腿硬拉',      ico:'hinge',    c:1.10, met:5.2, compound:1, load:'bar' },
+  { id:'b_leg_5',  cat:'leg', name:'腿屈伸',        ico:'legext',   c:0.55, met:4.0, compound:0, load:'machine' },
+  { id:'b_leg_6',  cat:'leg', name:'俯卧腿弯举',    ico:'legcurl',  c:0.42, met:4.0, compound:0, load:'machine' },
+  { id:'b_leg_11', cat:'leg', name:'坐姿腿弯举',    ico:'legcurl',  c:0.48, met:4.0, compound:0, load:'machine' },
+  { id:'b_leg_14', cat:'leg', name:'髋内收机',      ico:'abduct',   c:0.45, met:4.0, compound:0, load:'machine' },
+  { id:'b_leg_7',  cat:'leg', name:'站姿提踵',      ico:'calf',     c:0.80, met:4.0, compound:0, load:'machine' },
+  { id:'b_leg_13', cat:'leg', name:'坐姿提踵',      ico:'calf',     c:0.60, met:4.0, compound:0, load:'machine' },
+
+  /* ===== 臀部 ===== */
+  { id:'b_glute_1',  cat:'glute', name:'杠铃臀桥',      ico:'hipthrust', c:1.30, met:5.0, compound:1, load:'bar' },
+  { id:'b_glute_5',  cat:'glute', name:'器械臀推',      ico:'machine',   c:1.30, met:4.8, compound:1, load:'machine' },
+  { id:'b_glute_7',  cat:'glute', name:'自重臀桥',      ico:'hipthrust', c:0,    met:3.8, compound:0, load:'bw' },
+  { id:'b_glute_2',  cat:'glute', name:'罗马尼亚硬拉',  ico:'hinge',     c:1.25, met:5.5, compound:1, load:'bar' },
+  { id:'b_glute_8',  cat:'glute', name:'相扑硬拉',      ico:'hinge',     c:1.60, met:5.6, compound:1, load:'bar' },
+  { id:'b_glute_3',  cat:'glute', name:'保加利亚分腿蹲',ico:'lunge',     c:0.25, met:5.2, compound:1, load:'db' },
+  { id:'b_glute_4',  cat:'glute', name:'髋外展机',      ico:'abduct',    c:0.45, met:4.0, compound:0, load:'machine' },
+  { id:'b_glute_6',  cat:'glute', name:'绳索后踢腿',    ico:'cable',     c:0.15, met:4.0, compound:0, load:'cable' },
+  { id:'b_glute_9',  cat:'glute', name:'跪姿后踢腿',    ico:'body',      c:0,    met:3.8, compound:0, load:'bw' },
+  { id:'b_glute_10', cat:'glute', name:'侧卧蚌式',      ico:'body',      c:0,    met:3.5, compound:0, load:'bw' },
+
+  /* ===== 腹部核心 ===== */
+  { id:'b_core_1',  cat:'core', name:'卷腹',        ico:'crunch',   c:0,    met:3.8, compound:0, load:'bw' },
+  { id:'b_core_5',  cat:'core', name:'仰卧抬腿',    ico:'crunch',   c:0,    met:4.0, compound:0, load:'bw' },
+  { id:'b_core_3',  cat:'core', name:'悬垂举腿',    ico:'legraise', c:0,    met:4.5, compound:0, load:'bw' },
+  { id:'b_core_13', cat:'core', name:'罗马椅举腿',  ico:'legraise', c:0,    met:4.2, compound:0, load:'bw' },
+  { id:'b_core_2',  cat:'core', name:'平板支撑',    ico:'plank',    c:0,    met:3.5, compound:0, load:'bw' },
+  { id:'b_core_6',  cat:'core', name:'侧平板',      ico:'plank',    c:0,    met:3.5, compound:0, load:'bw' },
+  { id:'b_core_10', cat:'core', name:'登山者',      ico:'plank',    c:0,    met:6.0, compound:0, load:'bw' },
+  { id:'b_core_12', cat:'core', name:'死虫',        ico:'body',     c:0,    met:3.5, compound:0, load:'bw' },
+  { id:'b_core_4',  cat:'core', name:'俄罗斯转体',  ico:'twist',    c:0.08, met:4.0, compound:0, load:'db' },
+  { id:'b_core_11', cat:'core', name:'负重体侧屈',  ico:'dumbbell', c:0.25, met:3.8, compound:0, load:'db' },
+  { id:'b_core_7',  cat:'core', name:'健腹轮',      ico:'abwheel',  c:0,    met:4.5, compound:0, load:'bw' },
+  { id:'b_core_8',  cat:'core', name:'绳索卷腹',    ico:'cable',    c:0.45, met:4.0, compound:0, load:'cable' },
+  { id:'b_core_9',  cat:'core', name:'器械卷腹',    ico:'machine',  c:0.50, met:4.0, compound:0, load:'machine' },
+
+  /* ===== 全身 ===== */
+  { id:'b_full_1',  cat:'full', name:'波比跳',      ico:'burpee',     c:0,    met:8.0, compound:1, load:'bw' },
+  { id:'b_full_2',  cat:'full', name:'壶铃甩摆',    ico:'swing',      c:0.35, met:8.0, compound:1, load:'kb' },
+  { id:'b_full_3',  cat:'full', name:'高翻',        ico:'clean',      c:0.80, met:8.0, compound:1, load:'bar' },
+  { id:'b_full_10', cat:'full', name:'推举深蹲',    ico:'clean',      c:0.50, met:7.0, compound:1, load:'bar' },
+  { id:'b_full_4',  cat:'full', name:'农夫行走',    ico:'carry',      c:0.50, met:5.0, compound:1, load:'db' },
+  { id:'b_full_9',  cat:'full', name:'土耳其起立',  ico:'kettlebell', c:0.20, met:6.0, compound:1, load:'kb' },
+  { id:'b_full_5',  cat:'full', name:'战绳',        ico:'rope2',      c:0,    met:8.5, compound:1, load:'bw' },
+  { id:'b_full_6',  cat:'full', name:'药球砸地',    ico:'slam',       c:0.10, met:7.0, compound:1, load:'bar' },
+  { id:'b_full_7',  cat:'full', name:'雪橇推',      ico:'sled',       c:1.00, met:9.0, compound:1, load:'bar' },
+  { id:'b_full_8',  cat:'full', name:'跳箱',        ico:'boxjump',    c:0,    met:7.0, compound:1, load:'bw' },
+
+  /* ===== 有氧 ===== */
+  { id:'b_cardio_1',  cat:'cardio', name:'跑步',      ico:'run',        type:'cardio', mode:'run' },
+  { id:'b_cardio_3',  cat:'cardio', name:'快走',      ico:'walk',       type:'cardio', mode:'walk' },
+  { id:'b_cardio_2',  cat:'cardio', name:'爬坡走',    ico:'hill',       type:'cardio', mode:'incline' },
+  { id:'b_cardio_4',  cat:'cardio', name:'爬楼梯',    ico:'stairs',     type:'cardio', mode:'stairs' },
+  { id:'b_cardio_5',  cat:'cardio', name:'骑行',      ico:'bike',       type:'cardio', mode:'cycle' },
+  { id:'b_cardio_15', cat:'cardio', name:'动感单车',  ico:'bike',       type:'cardio', mode:'spin' },
+  { id:'b_cardio_11', cat:'cardio', name:'风阻单车',  ico:'bike',       type:'cardio', mode:'airbike' },
+  { id:'b_cardio_6',  cat:'cardio', name:'椭圆机',    ico:'elliptical', type:'cardio', mode:'elliptical' },
+  { id:'b_cardio_10', cat:'cardio', name:'划船机',    ico:'rower',      type:'cardio', mode:'rower' },
+  { id:'b_cardio_12', cat:'cardio', name:'滑雪机',    ico:'rower',      type:'cardio', mode:'ski' },
+  { id:'b_cardio_7',  cat:'cardio', name:'跳绳',      ico:'jumprope',   type:'cardio', mode:'rope' },
+  { id:'b_cardio_8',  cat:'cardio', name:'游泳',      ico:'swim',       type:'cardio', mode:'swim' },
+  { id:'b_cardio_9',  cat:'cardio', name:'登山徒步',  ico:'hike',       type:'cardio', mode:'hike' },
+  { id:'b_cardio_13', cat:'cardio', name:'HIIT间歇',  ico:'bolt',       type:'cardio', mode:'hiit' },
+  { id:'b_cardio_14', cat:'cardio', name:'拳击操',    ico:'boxing',     type:'cardio', mode:'box' },
+].map(a => ({ type: 'weight', compound: 0, load: 'bar', c: 0, met: 4.5, ...a }));
+
+/* 可选图标（自定义动作用） */
+const ICON_CHOICES = ['barbell','dumbbell','kettlebell','machine','cable','smith','body','bench','incline','decline',
+  'pullup','dip','pulldown','row','fly','press','lateral','yraise','frontraise','reardelt','shrug','uprightrow',
+  'curl','triceps','squat','legpress','lunge','legext','legcurl','calf','hinge','hipthrust','abduct','crunch',
+  'plank','legraise','twist','abwheel','burpee','swing','clean','carry','rope2','slam','sled','boxjump','backext',
+  'run','walk','hill','stairs','bike','elliptical','jumprope','swim','hike','rower','bolt','boxing','star'];
+
+/* 有氧模式：levels=[轻松,中等,激烈] 的 MET；speed 类按速度算 */
+const CARDIO_MODES = {
+  run:        { name:'跑步',    kind:'speed', def:8,   min:4,  max:20, step:0.5 },
+  walk:       { name:'快走',    kind:'speed', def:5.5, min:3,  max:9,  step:0.5 },
+  incline:    { name:'爬坡走',  kind:'slope', def:5.6, min:3,  max:8,  step:0.5 },
+  stairs:     { name:'爬楼梯',   levels:[7.0, 8.5, 10.5] },
+  cycle:      { name:'骑行',     levels:[6.0, 8.0, 10.0] },
+  spin:       { name:'动感单车', levels:[6.8, 8.5, 11.0] },
+  airbike:    { name:'风阻单车', levels:[8.0, 11.0, 14.0] },
+  elliptical: { name:'椭圆机',   levels:[4.6, 5.8, 7.0] },
+  rower:      { name:'划船机',   levels:[7.0, 8.5, 10.0] },
+  ski:        { name:'滑雪机',   levels:[7.0, 9.0, 11.0] },
+  rope:       { name:'跳绳',     levels:[8.0, 10.0, 12.0] },
+  swim:       { name:'游泳',     levels:[5.5, 7.5, 10.0] },
+  hike:       { name:'登山徒步', levels:[5.0, 7.0, 8.5] },
+  hiit:       { name:'HIIT间歇', levels:[8.0, 10.0, 12.0] },
+  box:        { name:'拳击操',   levels:[6.0, 8.0, 10.0] },
+};
+const LEVEL_NAMES = ['轻松', '中等', '激烈'];
+
+/* 力量强度档：met 为基准 MET 的倍率 */
+const STRENGTH_LEVELS = [
+  { id:'light', name:'轻量',   k:0.78, desc:'热身 / 12-15次' },
+  { id:'mid',   name:'标准',   k:1.00, desc:'常规增肌组 / 6-12次' },
+  { id:'heavy', name:'大重量', k:1.20, desc:'力量组 / 1-5次' },
+];
+
+/* ================= 热量计算 ================= */
+const RUN_TABLE = [
+  { x:5, met:3.5 }, { x:6, met:6.0 }, { x:7, met:7.2 }, { x:8, met:8.3 }, { x:9, met:9.0 },
+  { x:10, met:9.8 }, { x:11, met:10.6 }, { x:12, met:11.5 }, { x:14, met:13.5 }, { x:16, met:15.0 }, { x:20, met:19.0 }
+];
+function interpMet(table, x){
+  if (x <= table[0].x) return table[0].met;
+  for (let i = 1; i < table.length; i++){
+    if (x <= table[i].x){
+      const a = table[i - 1], b = table[i];
+      return a.met + (b.met - a.met) * (x - a.x) / (b.x - a.x);
+    }
+  }
+  return table[table.length - 1].met;
+}
+const walkMet = v => 1.6 + 0.48 * v;
+const runMet = v => interpMet(RUN_TABLE, v);
+const inclineMet = (slope, v) => walkMet(v || 5.6) + slope * 0.7;
+/* 总消耗；净消耗扣掉同时段静息代谢（约 1 MET） */
+function calcKcal(met, kg, minutes, net){
+  if (!met || !kg || !minutes) return 0;
+  return Math.max(0, (net ? met - 1 : met)) * kg * (minutes / 60) * 1.05;
+}
+/* Mifflin-St Jeor 基础代谢 */
+function bmrOf(p){
+  const w = p.weight || 70, h = p.height || 175, a = p.age || 25;
+  return 10 * w + 6.25 * h - 5 * a + (p.gender === 'female' ? -161 : 5);
+}
+</script>
+<script>
+"use strict";
+/* ================= 存储 ================= */
+const SCHEMA = 2;
+const clone = o => typeof structuredClone === 'function' ? structuredClone(o) : JSON.parse(JSON.stringify(o));
+const DEFAULTS = {
+  profile:   { height:175, weight:70, age:25, gender:'male' },
+  records:   {},
+  custom:    [],
+  weights:   [],
+  templates: [],
+  settings:  { defaultLevel:'mid', defaultRest:90, defaultWork:40, netKcal:false, theme:'auto', sound:true, autoRest:true },
+  meta:      { schema:SCHEMA, lastBackup:null },
+};
+const cache = {};
+const Store = {
+  get(k){
+    if (cache[k] !== undefined) return cache[k];
+    let v;
+    try {
+      const raw = localStorage.getItem('fit_' + k);
+      v = raw !== null ? JSON.parse(raw) : null;
+    } catch (e) { v = null; }
+    if (v === null || typeof v !== 'object' && typeof v !== typeof DEFAULTS[k]) v = clone(DEFAULTS[k]);
+    if (Array.isArray(DEFAULTS[k]) !== Array.isArray(v)) v = clone(DEFAULTS[k]);
+    if (!Array.isArray(DEFAULTS[k]) && DEFAULTS[k] && typeof DEFAULTS[k] === 'object') v = { ...clone(DEFAULTS[k]), ...v };
+    cache[k] = v;
+    return v;
+  },
+  set(k, v){
+    cache[k] = v;
+    try { localStorage.setItem('fit_' + k, JSON.stringify(v)); }
+    catch (e) { toast('存储失败：空间已满或浏览器禁止了本地存储'); return false; }
+    IDB.mirror(k, v);
+    return true;
+  },
+  profile(){ return this.get('profile'); },
+  records(){ return this.get('records'); },
+  custom(){ return this.get('custom'); },
+  settings(){ return this.get('settings'); },
+  weights(){ return this.get('weights'); },
+  templates(){ return this.get('templates'); },
+  meta(){ return this.get('meta'); },
+  snapshot(){
+    return { app:'健身记录', version:SCHEMA, exportedAt:new Date().toISOString(),
+      profile:this.profile(), records:this.records(), custom:this.custom(),
+      settings:this.settings(), weights:this.weights(), templates:this.templates() };
+  },
+};
+
+/* IndexedDB 副本：localStorage 被系统清理时可恢复 */
+const IDB = {
+  db: null, ready: false,
+  open(){
+    return new Promise(res => {
+      if (!window.indexedDB) return res(null);
+      let req;
+      try { req = indexedDB.open('fitlog', 1); } catch (e) { return res(null); }
+      req.onupgradeneeded = () => { try { req.result.createObjectStore('kv'); } catch (e) {} };
+      req.onsuccess = () => { this.db = req.result; this.ready = true; res(this.db); };
+      req.onerror = () => res(null);
+    });
+  },
+  mirror(k, v){
+    if (!this.ready || !this.db) return;
+    try {
+      const tx = this.db.transaction('kv', 'readwrite');
+      tx.objectStore('kv').put(JSON.stringify(v), k);
+    } catch (e) {}
+  },
+  read(k){
+    return new Promise(res => {
+      if (!this.ready || !this.db) return res(null);
+      try {
+        const r = this.db.transaction('kv', 'readonly').objectStore('kv').get(k);
+        r.onsuccess = () => { try { res(r.result ? JSON.parse(r.result) : null); } catch (e) { res(null); } };
+        r.onerror = () => res(null);
+      } catch (e) { res(null); }
+    });
+  },
+  async restoreIfEmpty(){
+    if (localStorage.getItem('fit_records') !== null) return false;
+    const recs = await this.read('records');
+    if (!recs || !Object.keys(recs).length) return false;
+    for (const k of ['profile', 'records', 'custom', 'weights', 'settings', 'templates']) {
+      const v = await this.read(k);
+      if (v) { delete cache[k]; try { localStorage.setItem('fit_' + k, JSON.stringify(v)); } catch (e) {} }
+    }
+    return true;
+  },
+};
+
+/* ================= 数据迁移（旧格式 → 逐组格式） ================= */
+function migrate(){
+  const meta = Store.meta();
+  if (meta.schema >= SCHEMA) return;
+  const recs = Store.records();
+  let touched = 0;
+  Object.keys(recs).forEach(date => {
+    if (!Array.isArray(recs[date])) { delete recs[date]; return; }
+    recs[date] = recs[date].map(it => {
+      const m = BUILTIN.find(b => b.id === it.aid);
+      if (!it.ico || /[^a-z0-9_-]/i.test(it.ico)) it.ico = m ? m.ico : (it.type === 'cardio' ? 'run' : 'star');
+      if (it.type !== 'cardio' && !Array.isArray(it.setList)) {
+        const n = Math.max(1, Math.round(num(it.sets, 1)));
+        const reps = Array.isArray(it.repsList) && it.repsList.length
+          ? it.repsList : new Array(n).fill(Math.round(num(it.reps, 10)));
+        it.setList = reps.map(r => ({ w: num(it.weight, 0), r: Math.round(num(r, 10)), done: 1 }));
+        delete it.sets; delete it.reps; delete it.repsList; delete it.weight;
+        touched++;
+      }
+      if (it.kcalNet == null) it.kcalNet = Math.round(calcKcal(num(it.met, 0), Store.profile().weight || 70, num(it.durMin, 0), true));
+      return it;
+    });
+  });
+  Store.set('records', recs);
+  const custom = Store.custom().map(c => {
+    if (!c.ico || /[^a-z0-9_-]/i.test(c.ico)) c.ico = 'star';
+    if (c.c == null) c.c = 0;
+    if (!c.load) c.load = 'bar';
+    if (!c.met) c.met = 4.2;
+    return c;
+  });
+  Store.set('custom', custom);
+  meta.schema = SCHEMA;
+  Store.set('meta', meta);
+  if (touched) console.info('[健身记录] 已迁移 ' + touched + ' 条旧记录到逐组格式');
+}
+
+/* ================= 动作查询 ================= */
+let _actCache = null;
+function allActions(){
+  if (_actCache) return _actCache;
+  _actCache = [...BUILTIN, ...Store.custom().map(c => ({ type:'weight', compound:0, load:'bar', c:0, met:4.2, ...c, custom:1 }))];
+  return _actCache;
+}
+function invalidateActions(){ _actCache = null; }
+function getAction(aid){ return allActions().find(a => a.id === aid) || null; }
+
+/* 记录里的某个动作的全部历史（新 → 旧） */
+function historyOf(aid){
+  const recs = Store.records();
+  const out = [];
+  Object.keys(recs).forEach(date => (recs[date] || []).forEach((it, idx) => {
+    if (it.aid === aid) out.push({ date, idx, it });
+  }));
+  out.sort((a, b) => a.date < b.date ? 1 : a.date > b.date ? -1 : b.idx - a.idx);
+  return out;
+}
+function lastRecordOf(aid, exceptRef){
+  const h = historyOf(aid);
+  for (const r of h) {
+    if (exceptRef && r.date === exceptRef.date && r.idx === exceptRef.idx) continue;
+    return r;
+  }
+  return null;
+}
+const volOf = it => !it || it.type === 'cardio' || !Array.isArray(it.setList)
+  ? 0 : it.setList.reduce((s, x) => s + num(x.w, 0) * num(x.r, 0), 0);
+const maxWOf = it => !it || !Array.isArray(it.setList)
+  ? 0 : it.setList.reduce((s, x) => Math.max(s, num(x.w, 0)), 0);
+const dayVol = items => (items || []).reduce((s, it) => s + volOf(it), 0);
+const dayKcal = (items, net) => (items || []).reduce((s, it) => s + num(net ? it.kcalNet : it.kcal, 0), 0);
+const dayMin = items => (items || []).reduce((s, it) => s + num(it.durMin, 0), 0);
+
+/* ================= 全局状态 ================= */
+const state = {
+  cat: 'chest', q: '', editing: null, editRef: null, form: null,
+  date: todayStr(), dateTouched: false,
+  _met: 0, _durMin: 0, _kcal: 0, _kcalNet: 0,
+  histDays: 7, histPage: 1, chartMode: 'kcal', trendAid: '',
+  customDraft: { cat:'chest', ico:'star', type:'weight', load:'bar', c:0 },
+  editingCustom: null,
+};
+const S = () => Store.settings();
+const useNet = () => !!S().netKcal;
+const kcalOf = it => num(useNet() ? it.kcalNet : it.kcal, 0);
+
+/* ================= Toast（支持撤销） ================= */
+let _undoFn = null, _toastTimer = null;
+function toast(msg, undoFn){
+  const t = $('#toast');
+  t.querySelector('.tt').textContent = msg;
+  t.classList.toggle('has-undo', !!undoFn);
+  _undoFn = undoFn || null;
+  t.classList.add('show');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { t.classList.remove('show'); _undoFn = null; }, undoFn ? 5200 : 1900);
+}
+function hideToast(){ $('#toast').classList.remove('show'); _undoFn = null; clearTimeout(_toastTimer); }
+
+/* ================= 弹层 ================= */
+let _modalOnClose = null;
+function openModal(html, onClose){
+  $('#modal').innerHTML = html;
+  $('#modal').classList.add('show');
+  $('#modalMask').classList.add('show');
+  _modalOnClose = onClose || null;
+}
+function closeModal(){
+  $('#modal').classList.remove('show');
+  $('#modalMask').classList.remove('show');
+  const f = _modalOnClose; _modalOnClose = null;
+  if (f) f();
+}
+function confirmBox(title, text, okText, onOk, danger){
+  openModal(`<div class="modal-title">${esc(title)}</div>
+    <div class="modal-text">${text}</div>
+    <div class="modal-row">
+      <button class="btn-save secondary" data-mo="cancel">取消</button>
+      <button class="btn-save ${danger ? 'danger' : ''}" data-mo="ok">${esc(okText)}</button>
+    </div>`);
+  $('#modal').querySelector('[data-mo="cancel"]').onclick = closeModal;
+  $('#modal').querySelector('[data-mo="ok"]').onclick = () => { closeModal(); onOk(); };
+}
+
+/* ================= 主题 ================= */
+function applyTheme(){
+  const t = S().theme || 'auto';
+  const dark = t === 'dark' || (t === 'auto' && !window.matchMedia('(prefers-color-scheme: light)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', dark ? '#0d0f14' : '#f5f6f8');
+}
+</script>
+<script>
+"use strict";
+/* ================= 记录页 ================= */
+function renderCats(){
+  $('#catScroll').innerHTML = CATS.map(c =>
+    `<button class="chip ${state.cat === c.id ? 'active' : ''}" data-cat="${c.id}">${ico(c.ico)}${c.name}</button>`).join('');
+}
+function matchAction(a, q){
+  if (!q) return true;
+  return a.name.toLowerCase().includes(q) || catName(a.cat).includes(q);
+}
+function renderActions(){
+  const grid = $('#actionGrid');
+  const q = state.q.trim().toLowerCase();
+  const recentMap = recentAidMap();
+  let acts = allActions();
+  acts = q ? acts.filter(a => matchAction(a, q)) : acts.filter(a => a.cat === state.cat);
+  $('#catScroll').style.display = q ? 'none' : '';
+  if (!acts.length){
+    grid.innerHTML = `<div class="grid-empty">没有匹配「${esc(state.q)}」的动作<br>可以到「我的 → 自定义动作」添加一个</div>`;
+    return;
+  }
+  grid.innerHTML = acts.map(a => `
+    <button class="act-card" data-aid="${a.id}">
+      ${recentMap[a.id] ? '<i class="last-dot"></i>' : ''}
+      ${ico(a.ico)}
+      <span class="act-name">${esc(a.name)}</span>
+      <span class="act-tag">${a.type === 'cardio' ? '有氧' : (a.custom ? '自定义' : (a.compound ? '复合' : '孤立'))}</span>
+    </button>`).join('') + (q ? '' : `
+    <button class="act-card add-card" data-add="1">
+      ${ico('plus')}<span class="act-name">添加动作</span><span class="act-tag">自定义</span>
+    </button>`);
+}
+/* 最近 14 天练过的动作 */
+function recentAidMap(){
+  const recs = Store.records(), out = {}, from = shiftDate(todayStr(), -14);
+  Object.keys(recs).forEach(d => { if (d >= from) (recs[d] || []).forEach(it => out[it.aid] = 1); });
+  return out;
+}
+function renderTodayList(){
+  const box = $('#todayList');
+  const items = Store.records()[state.date] || [];
+  if (!items.length){ box.innerHTML = ''; return; }
+  const net = useNet();
+  const total = dayKcal(items, net), vol = dayVol(items);
+  box.innerHTML = `<div class="section-head">
+      <span>${state.date === todayStr() ? '今天' : fmtDate(state.date)}已记录 ${items.length} 项</span>
+      <span>${Math.round(total)} kcal${vol ? ' · 容量 ' + fmtVol(vol) : ''}</span>
+    </div>` + items.map((it, i) => histItemHTML(it, state.date, i)).join('');
+}
+
+/* 单条记录的渲染（历史页复用） */
+function detailText(it){
+  if (it.type === 'cardio'){
+    const m = CARDIO_MODES[it.mode] || {};
+    let t = fmtHM(it.durMin);
+    if (m.kind === 'speed') t += ` · ${it.speed}km/h`;
+    else if (m.kind === 'slope') t += ` · 坡度${it.slope}% · ${it.speed}km/h`;
+    else t += ` · ${LEVEL_NAMES[num(it.level, 1)] || '中等'}`;
+    if (it.distKm) t += ` · ${it.distKm}km`;
+    return t;
+  }
+  const sets = Array.isArray(it.setList) ? it.setList : [];
+  if (!sets.length) return fmtHM(it.durMin);
+  const same = sets.every(s => s.w === sets[0].w && s.r === sets[0].r);
+  let t = same
+    ? `${sets.length}组 × ${sets[0].r}次${sets[0].w ? ' × ' + fmtKg(sets[0].w) + 'kg' : '（自重）'}`
+    : sets.map(s => (s.w ? fmtKg(s.w) + '×' : '') + s.r).join(' / ');
+  const v = volOf(it);
+  if (v) t += ` · 容量 ${fmtVol(v)}`;
+  return t;
+}
+function histItemHTML(it, date, i){
+  return `<div class="hist-item" data-edit="${date}|${i}">
+    <div class="hi-main">
+      <div class="hi-name">${ico(it.ico || 'star')}${esc(it.name)}<span class="hi-time">${esc(it.time || '')}</span></div>
+      <div class="hi-detail">${esc(detailText(it))}</div>
+    </div>
+    <div class="hi-right">
+      <span class="hi-kcal">${Math.round(kcalOf(it))} kcal</span>
+      <button class="hi-del" data-del="${date}|${i}" aria-label="删除">${ico('trash')}</button>
+    </div>
+  </div>`;
+}
+
+/* ================= 日期 ================= */
+function applyDateUI(){
+  const isToday = state.date === todayStr();
+  $('#dbDateInput').value = state.date;
+  $('#dbDate').innerHTML = ico('calendar') + (isToday ? '今天 · ' : '') + fmtDate(state.date);
+  $('#pastBanner').classList.toggle('show', !isToday);
+  $('#pastBannerTxt').textContent = `正在补记 ${fmtDate(state.date)}（${relDay(state.date)}）的训练`;
+  $('#dbToday').style.display = isToday ? 'none' : '';
+}
+function updateTopKcal(){
+  const net = useNet();
+  const items = Store.records()[todayStr()] || [];
+  $('#todayKcal').textContent = Math.round(dayKcal(items, net));
+  $('#kcalLabel').textContent = net ? '今日净消耗' : '今日消耗';
+  const vol = dayVol(items);
+  $('#todayLabel').textContent = items.length
+    ? `今天 · ${items.length} 项${vol ? ' · 容量 ' + fmtVol(vol) : ''}`
+    : '今天 · 还没有记录';
+}
+
+/* ================= 休息计时器 ================= */
+const Rest = {
+  endAt: 0, total: 0, id: null, label: '', done: false,
+  start(sec, label){
+    this.total = sec; this.endAt = Date.now() + sec * 1000; this.label = label || '组间休息'; this.done = false;
+    $('#restBar').classList.add('show'); $('#restBar').classList.remove('done');
+    $('#restT1').textContent = this.label;
+    $('#restStop').textContent = '结束';
+    if (this.id) clearInterval(this.id);
+    this.tick();
+    this.id = setInterval(() => this.tick(), 250);
+  },
+  add(sec){ if (!this.endAt) return; if (this.done) { this.start(sec, this.label); return; } this.endAt += sec * 1000; this.total += sec; this.tick(); },
+  stop(){
+    if (this.id) clearInterval(this.id);
+    this.id = null; this.endAt = 0; this.done = false;
+    $('#restBar').classList.remove('show', 'done');
+  },
+  tick(){
+    const left = Math.max(0, (this.endAt - Date.now()) / 1000);
+    const r = 17, C = 2 * Math.PI * r;
+    const frac = this.total ? clamp(left / this.total, 0, 1) : 0;
+    const ring = $('#restRing');
+    ring.setAttribute('stroke-dasharray', C.toFixed(1));
+    ring.setAttribute('stroke-dashoffset', (C * (1 - frac)).toFixed(1));
+    $('#restTime').textContent = left >= 60 ? fmtMMSS(left) : Math.ceil(left);
+    $('#restT2').textContent = this.done ? '可以开始下一组了' : `还剩 ${Math.ceil(left)} 秒`;
+    if (left <= 0 && !this.done){
+      this.done = true;
+      $('#restBar').classList.add('done');
+      $('#restT1').textContent = '休息结束';
+      $('#restStop').textContent = '知道了';
+      notifyDone();
+      if (this.id) { clearInterval(this.id); this.id = null; }
+    }
+  },
+};
+let _audio = null;
+function notifyDone(){
+  if (!S().sound) return;
+  try { if (navigator.vibrate) navigator.vibrate([180, 90, 180]); } catch (e) {}
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    _audio = _audio || new AC();
+    if (_audio.state === 'suspended') _audio.resume();
+    [0, 0.22, 0.44].forEach((t, i) => {
+      const o = _audio.createOscillator(), g = _audio.createGain();
+      o.type = 'sine'; o.frequency.value = i === 2 ? 1046 : 784;
+      g.gain.setValueAtTime(0.0001, _audio.currentTime + t);
+      g.gain.exponentialRampToValueAtTime(0.25, _audio.currentTime + t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, _audio.currentTime + t + 0.18);
+      o.connect(g); g.connect(_audio.destination);
+      o.start(_audio.currentTime + t); o.stop(_audio.currentTime + t + 0.2);
+    });
+  } catch (e) {}
+}
+
+/* ================= 抽屉 ================= */
+function stepperHTML(id, val, min, max, step, unit){
+  const disp = Number.isInteger(val) ? val : (Math.round(val * 10) / 10).toFixed(1);
+  return `<div class="stepper" data-id="${id}" data-min="${min}" data-max="${max}">
+    <button class="step-btn" data-d="${-step}" aria-label="减少">${ico('minus')}</button>
+    <div class="step-val">${disp}<small>${unit || ''}</small></div>
+    <button class="step-btn" data-d="${step}" aria-label="增加">${ico('plus')}</button>
+  </div>`;
+}
+function setStepper(key, v){
+  const st = $(`#drawerBody .stepper[data-id="${key}"]`);
+  if (!st) return;
+  const disp = Number.isInteger(v) ? v : (Math.round(v * 10) / 10).toFixed(1);
+  const small = st.querySelector('small');
+  st.querySelector('.step-val').innerHTML = disp + (small ? small.outerHTML : '');
+}
+
+function refWeights(action, p){
+  if (!action || action.type === 'cardio') return null;
+  const c = num(action.c, 0);
+  if (!c) return null;
+  const w = p.weight || 70;
+  const r25 = v => Math.max(2.5, Math.round(v / 2.5) * 2.5);
+  return { mid: r25(c * w), midLo: r25(c * w * .9), midHi: r25(c * w * 1.1),
+    lightLo: r25(c * w * .4), lightHi: r25(c * w * .6),
+    heavyLo: r25(c * w * 1.2), heavyHi: r25(c * w * 1.5) };
+}
+function strengthRefHTML(){
+  const a = state.editing, p = Store.profile();
+  const cur = state.form ? state.form.intensity : 'mid';
+  if (!a) return '';
+  if (a.custom && !a.c)
+    return `<div class="ref-box" id="strRefBox">自定义动作没有参考数据，按感觉选：<b>轻量</b>=轻松做完，<b>标准</b>=有点吃力，<b>大重量</b>=勉强完成。想要参考重量可以在「我的 → 自定义动作」里填系数。</div>`;
+  if (!num(a.c, 0))
+    return `<div class="ref-box" id="strRefBox"><b>${esc(a.name)}</b> 是自重动作，负荷就是你的体重（约 ${p.weight || 70}kg）。强度靠次数体现：<b>轻量</b>=轻松15次以上，<b>标准</b>=8-12次接近力竭，<b>大重量</b>=1-6次（可挂负重）。重量栏可填加负重量，不加就留 0。</div>`;
+  const R = refWeights(a, p), g = p.gender === 'female' ? '女' : '男';
+  const row = (id, lv, lo, hi, times, feel) =>
+    `<div class="ref-row ${cur === id ? 'on' : ''}"><span class="rl">${lv}</span><span>${lo}~${hi}kg</span><span class="rm">${times} · ${feel}</span></div>`;
+  return `<div class="ref-box" id="strRefBox">
+    <b>重量参考</b> · 按 ${p.height || 175}cm / ${p.weight || 70}kg（${g}）估算，填的是${LOAD_TXT[a.load] || '总重量'}
+    ${row('light', '轻量', R.lightLo, R.lightHi, '12-15次', '热身/耐力')}
+    ${row('mid', '标准', R.midLo, R.midHi, '6-12次', '常规增肌组')}
+    ${row('heavy', '大重量', R.heavyLo, R.heavyHi, '1-5次', '力量/极限')}
+    <div class="ref-note">这只是起步参考，不是目标。以你实际能用标准动作完成的重量为准，练了一段时间后请以「上次记录」为基准加重。</div>
+  </div>`;
+}
+function lastBoxHTML(){
+  const a = state.editing;
+  if (!a) return '';
+  const last = lastRecordOf(a.id, state.editRef);
+  if (!last) return `<div class="last-box"><div class="lb-txt">第一次记录这个动作。保存后，下次打开会自动带出这次的重量和组次。</div></div>`;
+  const it = last.it;
+  const best = historyOf(a.id).reduce((m, r) => Math.max(m, maxWOf(r.it)), 0);
+  const isPR = maxWOf(it) >= best && best > 0;
+  return `<div class="last-box">
+    <div class="lb-txt">上次 <b>${fmtDateShort(last.date)}</b>（${relDay(last.date)}）
+      <span class="lb-sets">${esc(detailText(it))}</span>
+      ${isPR ? `<span class="pr-flag">${ico('trophy')}当前最佳</span>` : ''}
+    </div>
+    ${a.type === 'cardio' ? '' : `<button class="mini-btn" data-use-last="1">${ico('copy')}沿用</button>`}
+  </div>`;
+}
+
+function defaultSetList(action){
+  const last = lastRecordOf(action.id, null);
+  if (last && Array.isArray(last.it.setList) && last.it.setList.length)
+    return last.it.setList.map(s => ({ w: num(s.w, 0), r: num(s.r, 10), done: 0 }));
+  const R = refWeights(action, Store.profile());
+  const w = R ? R.mid : 0;
+  return [0, 1, 2, 3].map(() => ({ w, r: 10, done: 0 }));
+}
+function openDrawer(action, prefill, editRef){
+  state.editing = action;
+  state.editRef = editRef || null;
+  const st = S();
+  $('#drawerTitle').innerHTML = ico(action.ico || 'star') + esc(action.name);
+  $('#drawerSub').textContent = catName(action.cat) + (action.type === 'cardio' ? ' · 有氧' : ' · 力量')
+    + (editRef ? ' · 修改记录' : (state.date === todayStr() ? '' : ' · 补记 ' + fmtDateShort(state.date)));
+  if (action.type === 'weight'){
+    const last = lastRecordOf(action.id, editRef);
+    state.form = {
+      type: 'weight',
+      intensity: prefill?.intensity || (last?.it.intensity) || st.defaultLevel,
+      intensityTouched: !!(prefill?.intensity || last),
+      setList: Array.isArray(prefill?.setList) && prefill.setList.length
+        ? prefill.setList.map(s => ({ w: num(s.w, 0), r: num(s.r, 10), done: num(s.done, 0) }))
+        : defaultSetList(action),
+      restSec: prefill?.restSec ?? last?.it.restSec ?? st.defaultRest,
+      workSec: prefill?.workSec ?? last?.it.workSec ?? st.defaultWork,
+      note: prefill?.note || '',
+    };
+    $('#drawerBody').innerHTML = weightFormHTML();
+  } else {
+    const m = CARDIO_MODES[action.mode] || {};
+    const last = lastRecordOf(action.id, editRef);
+    state.form = {
+      type: 'cardio', mode: action.mode,
+      durMin: prefill?.durMin ?? last?.it.durMin ?? 30,
+      level: prefill?.level ?? last?.it.level ?? 1,
+      speed: prefill?.speed ?? last?.it.speed ?? (m.def || 5.5),
+      slope: prefill?.slope ?? last?.it.slope ?? 5,
+      distKm: prefill?.distKm ?? 0,
+      note: prefill?.note || '',
+    };
+    if (m.kind === 'speed' && !state.form.distKm) state.form.distKm = +(state.form.speed * state.form.durMin / 60).toFixed(2);
+    $('#drawerBody').innerHTML = cardioFormHTML();
+  }
+  bindDrawerEvents();
+  recalc();
+  $('#drawer').classList.add('show');
+  $('#drawerMask').classList.add('show');
+}
+function closeDrawer(){
+  $('#drawer').classList.remove('show');
+  $('#drawerMask').classList.remove('show');
+  state.editing = null; state.editRef = null; state.form = null;
+}
+function setsHTML(){
+  const f = state.form;
+  return f.setList.map((s, i) => `
+    <div class="set-row ${s.done ? 'done' : ''}" data-i="${i}">
+      <span class="set-no">${i + 1}</span>
+      <label class="set-in"><input type="number" inputmode="decimal" step="0.5" min="0" max="999"
+        data-k="w" data-i="${i}" value="${s.w || ''}" placeholder="0" aria-label="第${i + 1}组重量"><span>kg</span></label>
+      <span class="set-x">×</span>
+      <label class="set-in"><input type="number" inputmode="numeric" step="1" min="0" max="999"
+        data-k="r" data-i="${i}" value="${s.r || ''}" placeholder="0" aria-label="第${i + 1}组次数"><span>次</span></label>
+      <button class="set-act ${s.done ? 'on' : ''}" data-done="${i}" aria-label="标记完成">${ico('check')}</button>
+      <button class="set-act" data-rm="${i}" aria-label="删除这组">${ico('close')}</button>
+    </div>`).join('');
+}
+function setsSummary(){
+  const f = state.form;
+  const vol = f.setList.reduce((s, x) => s + num(x.w, 0) * num(x.r, 0), 0);
+  const reps = f.setList.reduce((s, x) => s + num(x.r, 0), 0);
+  return `${f.setList.length} 组 · 合计 ${reps} 次${vol ? ' · 容量 <b>' + fmtVol(vol) + '</b>' : ''}`;
+}
+function weightFormHTML(){
+  const f = state.form;
+  const lv = STRENGTH_LEVELS.find(l => l.id === f.intensity) || STRENGTH_LEVELS[1];
+  return `
+  ${lastBoxHTML()}
+  <div class="field">
+    <div class="field-label">每组重量 × 次数 <span class="hint">可以每组不同，点 ✓ 标记已完成</span></div>
+    <div class="sets-box"><div id="setsWrap">${setsHTML()}</div>
+      <div class="sets-sum" id="setsSum">${setsSummary()}</div>
+    </div>
+    <div class="sets-tools">
+      <button data-addset="1">${ico('plus')}加一组</button>
+      <button data-copyset="1" class="sub">${ico('copy')}复制末组</button>
+    </div>
+  </div>
+  <div class="field">
+    <div class="field-label">训练强度 <span class="hint" id="intensityHint">${lv.desc}</span></div>
+    <div class="seg" id="intensitySeg">${STRENGTH_LEVELS.map(l =>
+      `<button data-lv="${l.id}" class="${f.intensity === l.id ? 'on' : ''}" data-desc="${l.desc}">${l.name}</button>`).join('')}</div>
+    ${strengthRefHTML()}
+  </div>
+  <div class="field">
+    <div class="field-label">每组动作时间 <span class="hint">单组约 30-60 秒</span></div>
+    ${stepperHTML('workSec', f.workSec, 10, 180, 5, '秒')}
+  </div>
+  <div class="field">
+    <div class="field-label">组间休息 <span class="hint">保存后可一键开始倒计时</span></div>
+    ${stepperHTML('restSec', f.restSec, 15, 300, 15, '秒')}
+  </div>
+  <div class="field">
+    <div class="field-label">备注 <span class="hint">可留空</span></div>
+    <input class="txt" type="text" id="noteInput" maxlength="60" placeholder="如：左肩有点酸、换了新握法" value="${esc(f.note)}">
+  </div>
+  ${previewHTML()}
+  <button class="btn-save" data-save="1">${ico('check')}保存记录</button>
+  <div style="height:10px"></div>
+  <div class="btn-pair">
+    <button class="btn-save secondary" data-save="again">保存并继续记录</button>
+    <button class="btn-save secondary" data-rest="1">${ico('clock')}开始休息</button>
+  </div>
+  <div style="height:12px"></div>`;
+}
+function cardioFormHTML(){
+  const f = state.form, m = CARDIO_MODES[f.mode] || {};
+  let extra = '';
+  if (m.kind === 'speed'){
+    const quick = f.mode === 'run' ? [[8, '慢跑'], [10, '中速'], [12, '快速']] : [[4, '散步'], [5.5, '快走'], [6.5, '疾走']];
+    extra = `<div class="field">
+      <div class="field-label">速度 <span class="hint">改时长或距离会自动换算</span></div>
+      ${stepperHTML('speed', f.speed, m.min, m.max, m.step, 'km/h')}
+      <div class="seg" style="margin-top:8px">${quick.map(q => `<button data-qs="${q[0]}">${q[1]} ${q[0]}</button>`).join('')}</div>
+    </div>
+    <div class="field">
+      <div class="field-label">距离</div>
+      <div class="set-in" style="padding:0 12px"><input type="number" inputmode="decimal" step="0.1" min="0" id="distInput" value="${f.distKm || ''}" placeholder="0" aria-label="距离"><span>km</span></div>
+    </div>`;
+  } else if (m.kind === 'slope'){
+    extra = `<div class="field">
+      <div class="field-label">坡度</div>
+      ${stepperHTML('slope', f.slope, 0, 20, 1, '%')}
+      <div class="seg" style="margin-top:8px">
+        <button data-qsl="3">缓坡 3%</button><button data-qsl="6">中坡 6%</button><button data-qsl="10">陡坡 10%</button>
+      </div>
+    </div>
+    <div class="field">
+      <div class="field-label">速度</div>
+      ${stepperHTML('speed', f.speed, m.min, m.max, m.step, 'km/h')}
+    </div>`;
+  } else {
+    extra = `<div class="field">
+      <div class="field-label">强度</div>
+      <div class="seg" id="cardioLevelSeg">${LEVEL_NAMES.map((n, i) =>
+        `<button data-lv="${i}" class="${f.level === i ? 'on' : ''}">${n}</button>`).join('')}</div>
+      <div class="ref-box">参考 MET：${(m.levels || []).map((v, i) => LEVEL_NAMES[i] + ' ' + v).join(' · ')}。强度越高，同样时间消耗越多。</div>
+    </div>
+    <div class="field">
+      <div class="field-label">距离 <span class="hint">可选，不参与热量计算</span></div>
+      <div class="set-in" style="padding:0 12px"><input type="number" inputmode="decimal" step="0.1" min="0" id="distInput" value="${f.distKm || ''}" placeholder="0" aria-label="距离"><span>km</span></div>
+    </div>`;
+  }
+  return `
+  ${lastBoxHTML()}
+  <div class="field">
+    <div class="field-label">运动时长</div>
+    ${stepperHTML('durMin', f.durMin, 1, 300, 5, '分钟')}
+  </div>
+  ${extra}
+  <div class="field">
+    <div class="field-label">备注 <span class="hint">可留空</span></div>
+    <input class="txt" type="text" id="noteInput" maxlength="60" placeholder="如：跑步机，心率 150" value="${esc(f.note)}">
+  </div>
+  ${previewHTML()}
+  <button class="btn-save" data-save="1">${ico('check')}保存记录</button>
+  <div style="height:12px"></div>`;
+}
+function previewHTML(){
+  return `<div class="kcal-preview">
+    <div class="kv"><span class="k" id="preLabel">预计消耗</span><span class="v" id="preKcal">0 kcal</span></div>
+    <div class="note" id="preNote">MET — · 时长 —</div>
+  </div>`;
+}
+/* 根据填写的重量自动推荐强度档 */
+function autoIntensity(){
+  const f = state.form, a = state.editing;
+  if (!a || f.intensityTouched) return;
+  const R = refWeights(a, Store.profile());
+  if (!R) return;
+  const ws = f.setList.map(s => num(s.w, 0)).filter(w => w > 0);
+  if (!ws.length) return;
+  const avg = ws.reduce((s, w) => s + w, 0) / ws.length;
+  const lv = avg < R.mid * 0.68 ? 'light' : avg > R.mid * 1.15 ? 'heavy' : 'mid';
+  if (lv === f.intensity) return;
+  f.intensity = lv;
+  const seg = $('#intensitySeg');
+  if (seg) seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.lv === lv));
+  const hint = $('#intensityHint');
+  if (hint) hint.textContent = (STRENGTH_LEVELS.find(l => l.id === lv) || {}).desc + '（按重量自动判断）';
+  const rb = $('#strRefBox');
+  if (rb) rb.outerHTML = strengthRefHTML();
+}
+function recalc(){
+  const f = state.form;
+  if (!f) return;
+  const p = Store.profile(), kg = p.weight || 70, a = state.editing;
+  let met = 0, durMin = 0, note = '';
+  if (f.type === 'weight'){
+    const k = (STRENGTH_LEVELS.find(l => l.id === f.intensity) || STRENGTH_LEVELS[1]).k;
+    met = clamp(num(a && a.met, 4.5) * k, 2.5, 9);
+    durMin = f.setList.length * (num(f.workSec, 40) + num(f.restSec, 90)) / 60;
+    const vol = f.setList.reduce((s, x) => s + num(x.w, 0) * num(x.r, 0), 0);
+    note = `${f.setList.length}组 · ${vol ? '容量 ' + fmtVol(vol) : '自重'}`;
+  } else {
+    durMin = num(f.durMin, 0);
+    const m = CARDIO_MODES[f.mode] || {};
+    if (m.kind === 'speed'){ met = f.mode === 'run' ? runMet(f.speed) : walkMet(f.speed); note = `${f.speed} km/h`; }
+    else if (m.kind === 'slope'){ met = inclineMet(f.slope, f.speed); note = `坡度 ${f.slope}% · ${f.speed}km/h`; }
+    else { met = (m.levels || [5, 6, 7])[num(f.level, 1)]; note = LEVEL_NAMES[num(f.level, 1)]; }
+  }
+  const net = useNet();
+  state._met = met; state._durMin = durMin;
+  state._kcal = calcKcal(met, kg, durMin, false);
+  state._kcalNet = calcKcal(met, kg, durMin, true);
+  const el = $('#preKcal');
+  if (!el) return;
+  el.textContent = Math.round(net ? state._kcalNet : state._kcal) + ' kcal';
+  $('#preLabel').textContent = net ? '预计净消耗' : '预计消耗';
+  $('#preNote').innerHTML = `MET ${met.toFixed(1)} · ${fmtHM(durMin)}<br>${esc(note)}`;
+}
+function syncSetsUI(full){
+  if (full) $('#setsWrap').innerHTML = setsHTML();
+  const s = $('#setsSum');
+  if (s) s.innerHTML = setsSummary();
+  recalc();
+}
+function bindDrawerEvents(){
+  const body = $('#drawerBody');
+  body.onclick = e => {
+    const t = e.target;
+    const step = t.closest('.step-btn');
+    if (step){
+      const st = step.closest('.stepper'), key = st.dataset.id;
+      let v = num(state.form[key], 0) + parseFloat(step.dataset.d);
+      v = clamp(Math.round(v * 100) / 100, parseFloat(st.dataset.min), parseFloat(st.dataset.max));
+      state.form[key] = v;
+      setStepper(key, v);
+      if (key === 'durMin' || key === 'speed') syncCardio(key);
+      if (key === 'restSec'){ const b = body.querySelector('[data-rest]'); if (b) b.innerHTML = ico('clock') + `开始休息 ${v}s`; }
+      recalc();
+      return;
+    }
+    const lv = t.closest('#intensitySeg button');
+    if (lv){
+      state.form.intensity = lv.dataset.lv;
+      state.form.intensityTouched = true;
+      lv.parentNode.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+      lv.classList.add('on');
+      $('#intensityHint').textContent = lv.dataset.desc;
+      const rb = $('#strRefBox');
+      if (rb) rb.outerHTML = strengthRefHTML();
+      recalc();
+      return;
+    }
+    const cl = t.closest('#cardioLevelSeg button');
+    if (cl){
+      state.form.level = +cl.dataset.lv;
+      cl.parentNode.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+      cl.classList.add('on');
+      recalc();
+      return;
+    }
+    const qs = t.closest('[data-qs]');
+    if (qs){ state.form.speed = parseFloat(qs.dataset.qs); setStepper('speed', state.form.speed); syncCardio('speed'); recalc(); return; }
+    const qsl = t.closest('[data-qsl]');
+    if (qsl){ state.form.slope = parseFloat(qsl.dataset.qsl); setStepper('slope', state.form.slope); recalc(); return; }
+    const add = t.closest('[data-addset]');
+    if (add){
+      const l = state.form.setList, last = l[l.length - 1] || { w: 0, r: 10 };
+      l.push({ w: last.w, r: last.r, done: 0 });
+      syncSetsUI(true);
+      return;
+    }
+    const cp = t.closest('[data-copyset]');
+    if (cp){
+      const l = state.form.setList;
+      if (l.length){ const last = l[l.length - 1]; l.push({ w: last.w, r: last.r, done: 0 }); syncSetsUI(true); }
+      return;
+    }
+    const rm = t.closest('[data-rm]');
+    if (rm){
+      if (state.form.setList.length <= 1){ toast('至少保留一组'); return; }
+      state.form.setList.splice(+rm.dataset.rm, 1);
+      syncSetsUI(true);
+      return;
+    }
+    const dn = t.closest('[data-done]');
+    if (dn){
+      const i = +dn.dataset.done, s = state.form.setList[i];
+      s.done = s.done ? 0 : 1;
+      dn.classList.toggle('on', !!s.done);
+      dn.closest('.set-row').classList.toggle('done', !!s.done);
+      if (s.done && S().autoRest) Rest.start(num(state.form.restSec, 90), `休息 · ${state.editing.name} 第${i + 1}组后`);
+      return;
+    }
+    const ul = t.closest('[data-use-last]');
+    if (ul){
+      const last = lastRecordOf(state.editing.id, state.editRef);
+      if (last && Array.isArray(last.it.setList)){
+        state.form.setList = last.it.setList.map(s => ({ w: s.w, r: s.r, done: 0 }));
+        state.form.restSec = num(last.it.restSec, state.form.restSec);
+        state.form.workSec = num(last.it.workSec, state.form.workSec);
+        setStepper('restSec', state.form.restSec); setStepper('workSec', state.form.workSec);
+        syncSetsUI(true);
+        toast('已沿用上次的重量和组次');
+      }
+      return;
+    }
+    const rest = t.closest('[data-rest]');
+    if (rest){ Rest.start(num(state.form.restSec, 90), `休息 · ${state.editing.name}`); toast('开始计时'); return; }
+    const sv = t.closest('[data-save]');
+    if (sv){ saveRecord(sv.dataset.save === 'again'); return; }
+  };
+  body.oninput = e => {
+    const t = e.target;
+    if (t.dataset.k){
+      const s = state.form.setList[+t.dataset.i];
+      if (!s) return;
+      s[t.dataset.k] = Math.max(0, num(t.value, 0));
+      if (t.dataset.k === 'w') autoIntensity();
+      syncSetsUI(false);
+      return;
+    }
+    if (t.id === 'distInput'){ state.form.distKm = Math.max(0, num(t.value, 0)); syncCardio('dist'); recalc(); return; }
+    if (t.id === 'noteInput'){ state.form.note = t.value; return; }
+  };
+}
+/* 时长 / 距离 / 速度 三者联动 */
+function syncCardio(changed){
+  const f = state.form;
+  if (!f || f.type !== 'cardio') return;
+  const m = CARDIO_MODES[f.mode] || {};
+  if (m.kind !== 'speed') return;
+  if (changed === 'dist'){
+    if (f.distKm > 0 && f.durMin > 0){
+      f.speed = clamp(+(f.distKm / (f.durMin / 60)).toFixed(1), m.min, m.max);
+      setStepper('speed', f.speed);
+    }
+  } else {
+    f.distKm = +(f.speed * f.durMin / 60).toFixed(2);
+    const d = $('#distInput');
+    if (d && document.activeElement !== d) d.value = f.distKm;
+  }
+}
+
+/* ================= 保存 ================= */
+function saveRecord(again){
+  const f = state.form, a = state.editing;
+  if (!a) return;
+  if (f.type === 'weight'){
+    f.setList = f.setList.filter(s => num(s.r, 0) > 0);
+    if (!f.setList.length){ toast('每组次数不能为 0'); state.form.setList = [{ w: 0, r: 10, done: 0 }]; syncSetsUI(true); return; }
+  } else if (!(num(f.durMin, 0) > 0)){ toast('请填写运动时长'); return; }
+  recalc();
+  const now = new Date();
+  const prevBest = historyOf(a.id).reduce((m, r) =>
+    (state.editRef && r.date === state.editRef.date && r.idx === state.editRef.idx) ? m : Math.max(m, maxWOf(r.it)), 0);
+  const item = {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    time: pad2(now.getHours()) + ':' + pad2(now.getMinutes()),
+    aid: a.id, name: a.name, ico: a.ico || 'star', cat: a.cat, type: a.type,
+    met: +state._met.toFixed(2), durMin: +state._durMin.toFixed(1),
+    kcal: Math.round(state._kcal), kcalNet: Math.round(state._kcalNet),
+    note: (f.note || '').trim() || undefined,
+  };
+  if (a.type === 'weight'){
+    item.setList = f.setList.map(s => ({ w: num(s.w, 0), r: num(s.r, 0), done: s.done ? 1 : 0 }));
+    item.intensity = f.intensity; item.restSec = f.restSec; item.workSec = f.workSec;
+  } else {
+    item.mode = f.mode; item.level = f.level; item.speed = f.speed; item.slope = f.slope;
+    if (f.distKm) item.distKm = +f.distKm.toFixed(2);
+  }
+  const recs = Store.records();
+  if (state.editRef){
+    const { date, idx } = state.editRef;
+    if (recs[date] && recs[date][idx]){
+      item.id = recs[date][idx].id;
+      item.time = recs[date][idx].time || item.time;
+      recs[date][idx] = item;
+      Store.set('records', recs);
+      closeDrawer();
+      refreshAll();
+      toast('记录已更新');
+      return;
+    }
+  }
+  const date = state.date || todayStr();
+  (recs[date] = recs[date] || []).push(item);
+  Store.set('records', recs);
+  const newBest = maxWOf(item);
+  const isPR = a.type === 'weight' && newBest > prevBest && prevBest > 0;
+  refreshAll();
+  toast(isPR ? `新纪录！${a.name} ${fmtKg(newBest)}kg` : `已记录 ${a.name} · ${Math.round(kcalOf(item))} kcal`);
+  if (again){
+    openDrawer(a, { ...f, setList: f.setList.map(s => ({ ...s, done: 0 })) });
+    if (S().autoRest) Rest.start(num(f.restSec, 90), `休息 · ${a.name}`);
+  } else closeDrawer();
+}
+function refreshAll(){
+  updateTopKcal();
+  renderTodayList();
+  renderActions();
+  const active = document.querySelector('.page.active');
+  if (active && active.id === 'page-history') renderHistory();
+  if (active && active.id === 'page-stats') renderStats();
+}
+</script>
+<script>
+"use strict";
+/* ================= 历史页 ================= */
+const PAGE_DAYS = 12;
+function renderHistory(){
+  const page = $('#page-history');
+  const recs = Store.records();
+  const dates = Object.keys(recs).filter(d => (recs[d] || []).length).sort().reverse();
+  if (!dates.length){
+    page.innerHTML = `<div class="empty">${ico('list')}还没有训练记录<br>去「记录」页点一个动作就能开始</div>`;
+    return;
+  }
+  const shown = dates.slice(0, state.histPage * PAGE_DAYS);
+  const net = useNet();
+  let html = `<div class="page-title">训练历史 <small>点一条记录可以修改</small></div>`;
+  let curMonth = '';
+  shown.forEach(date => {
+    const mk = date.slice(0, 7);
+    if (mk !== curMonth){
+      curMonth = mk;
+      const mItems = dates.filter(d => d.startsWith(mk));
+      const mKcal = mItems.reduce((s, d) => s + dayKcal(recs[d], net), 0);
+      html += `<div class="month-head">${+mk.slice(5)}月 · ${mItems.length} 天 · ${Math.round(mKcal)} kcal</div>`;
+    }
+    const items = recs[date];
+    const vol = dayVol(items);
+    html += `<div class="day-card">
+      <div class="day-head">
+        <div>
+          <div class="day-date">${fmtDate(date)}</div>
+          <div class="day-meta">${relDay(date)} · ${items.length}项 · ${fmtHM(dayMin(items))}${vol ? ' · 容量 ' + fmtVol(vol) : ''}</div>
+        </div>
+        <div class="day-right">
+          <div class="day-kcal">${Math.round(dayKcal(items, net))} kcal</div>
+          <div class="day-tools">
+            <button data-copyday="${date}">${ico('copy')}复制到今天</button>
+            <button data-tpl="${date}">${ico('layers')}存为模板</button>
+          </div>
+        </div>
+      </div>
+      ${items.map((it, i) => histItemHTML(it, date, i)).join('')}
+    </div>`;
+  });
+  if (shown.length < dates.length)
+    html += `<button class="load-more" data-more="1">加载更早的记录（还有 ${dates.length - shown.length} 天）</button>`;
+  page.innerHTML = html;
+}
+
+/* 复制某天训练到今天 */
+function copyDayToToday(date){
+  const recs = Store.records();
+  const src = recs[date] || [];
+  if (!src.length) return;
+  const t = todayStr();
+  const now = new Date();
+  const copies = src.map(it => ({ ...clone(it), id: Date.now() + Math.floor(Math.random() * 100000),
+    time: pad2(now.getHours()) + ':' + pad2(now.getMinutes()),
+    setList: Array.isArray(it.setList) ? it.setList.map(s => ({ ...s, done: 0 })) : undefined }));
+  (recs[t] = recs[t] || []).push(...copies);
+  Store.set('records', recs);
+  state.date = t; state.dateTouched = false;
+  applyDateUI(); refreshAll();
+  toast(`已复制 ${copies.length} 项到今天`, () => {
+    const r = Store.records();
+    r[t] = (r[t] || []).filter(x => !copies.some(c => c.id === x.id));
+    if (!r[t].length) delete r[t];
+    Store.set('records', r); refreshAll(); hideToast();
+  });
+}
+function saveDayAsTemplate(date){
+  const items = Store.records()[date] || [];
+  if (!items.length) return;
+  openModal(`<div class="modal-title">存为训练模板</div>
+    <div class="modal-text">把 ${fmtDate(date)} 的 ${items.length} 个动作存成模板，以后一键套用。</div>
+    <input class="txt" id="tplName" maxlength="20" placeholder="模板名，如：推日 A" style="margin-top:10px">
+    <div class="modal-row"><button class="btn-save secondary" data-mo="cancel">取消</button><button class="btn-save" data-mo="ok">保存模板</button></div>`);
+  const inp = $('#tplName');
+  inp.value = CATS.filter(c => items.some(i => i.cat === c.id)).map(c => c.name).slice(0, 2).join('+') || '训练';
+  $('#modal').querySelector('[data-mo="cancel"]').onclick = closeModal;
+  $('#modal').querySelector('[data-mo="ok"]').onclick = () => {
+    const name = inp.value.trim() || '训练模板';
+    const tpls = Store.templates();
+    tpls.push({ id: 't_' + Date.now(), name,
+      items: items.map(it => ({ aid: it.aid, type: it.type, setList: it.setList, restSec: it.restSec,
+        workSec: it.workSec, intensity: it.intensity, mode: it.mode, level: it.level,
+        speed: it.speed, slope: it.slope, durMin: it.durMin })) });
+    Store.set('templates', tpls);
+    closeModal();
+    toast('模板已保存，可在「我的」里套用');
+  };
+}
+function applyTemplate(tid){
+  const tpl = Store.templates().find(t => t.id === tid);
+  if (!tpl) return;
+  const p = Store.profile(), kg = p.weight || 70;
+  const recs = Store.records(), date = state.date || todayStr();
+  const now = new Date();
+  const added = tpl.items.map(t => {
+    const a = getAction(t.aid) || { id: t.aid, name: '已删除的动作', ico: 'star', cat: 'full', met: 4.5, type: t.type || 'weight' };
+    const it = { id: Date.now() + Math.floor(Math.random() * 100000),
+      time: pad2(now.getHours()) + ':' + pad2(now.getMinutes()),
+      aid: a.id, name: a.name, ico: a.ico || 'star', cat: a.cat, type: t.type || 'weight' };
+    if (it.type === 'cardio'){
+      const m = CARDIO_MODES[t.mode] || {};
+      it.mode = t.mode; it.level = t.level ?? 1; it.speed = t.speed; it.slope = t.slope;
+      it.durMin = num(t.durMin, 30);
+      it.met = m.kind === 'speed' ? (t.mode === 'run' ? runMet(it.speed) : walkMet(it.speed))
+        : m.kind === 'slope' ? inclineMet(it.slope, it.speed) : (m.levels || [5, 6, 7])[it.level];
+    } else {
+      it.setList = (t.setList || [{ w: 0, r: 10 }]).map(s => ({ w: num(s.w, 0), r: num(s.r, 10), done: 0 }));
+      it.intensity = t.intensity || 'mid'; it.restSec = num(t.restSec, 90); it.workSec = num(t.workSec, 40);
+      const k = (STRENGTH_LEVELS.find(l => l.id === it.intensity) || STRENGTH_LEVELS[1]).k;
+      it.met = clamp(num(a.met, 4.5) * k, 2.5, 9);
+      it.durMin = it.setList.length * (it.workSec + it.restSec) / 60;
+    }
+    it.kcal = Math.round(calcKcal(it.met, kg, it.durMin, false));
+    it.kcalNet = Math.round(calcKcal(it.met, kg, it.durMin, true));
+    return it;
+  });
+  (recs[date] = recs[date] || []).push(...added);
+  Store.set('records', recs);
+  refreshAll();
+  switchTab('record');
+  toast(`已套用「${tpl.name}」，${added.length} 项`, () => {
+    const r = Store.records();
+    r[date] = (r[date] || []).filter(x => !added.some(c => c.id === x.id));
+    if (!r[date].length) delete r[date];
+    Store.set('records', r); refreshAll(); hideToast();
+  });
+}
+
+/* ================= 图表工具 ================= */
+function lineChartSVG(pts, opt){
+  const W = 300, H = opt.h || 86, pad = 8;
+  if (pts.length < 2) return '';
+  const xs = pts.map(p => p.x), ys = pts.map(p => p.y);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs);
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const span = y1 - y0 || Math.max(1, y1 * 0.1);
+  y0 -= span * 0.15; y1 += span * 0.15;
+  const px = v => pad + (x1 === x0 ? (W - 2 * pad) / 2 : (v - x0) / (x1 - x0) * (W - 2 * pad));
+  const py = v => H - pad - (v - y0) / (y1 - y0) * (H - 2 * pad);
+  const d = pts.map(p => `${px(p.x).toFixed(1)},${py(p.y).toFixed(1)}`).join(' ');
+  const area = `${px(x0).toFixed(1)},${(H - pad).toFixed(1)} ${d} ${px(x1).toFixed(1)},${(H - pad).toFixed(1)}`;
+  const color = opt.color || 'var(--accent)';
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;overflow:visible" role="img" aria-label="${esc(opt.label || '趋势图')}">
+    <polygon points="${area}" fill="${color}" opacity=".10"/>
+    <polyline points="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${pts.map(p => `<circle cx="${px(p.x).toFixed(1)}" cy="${py(p.y).toFixed(1)}" r="2.4" fill="${color}"/>`).join('')}
+  </svg>`;
+}
+
+/* ================= 统计页 ================= */
+function renderStats(){
+  const page = $('#page-stats');
+  const recs = Store.records();
+  const N = state.histDays, net = useNet();
+  const days = [];
+  for (let i = N - 1; i >= 0; i--){
+    const key = shiftDate(todayStr(), -i);
+    const items = recs[key] || [];
+    days.push({ key, items, kcal: dayKcal(items, net), vol: dayVol(items), count: items.length, min: dayMin(items) });
+  }
+  const totKcal = days.reduce((s, d) => s + d.kcal, 0);
+  const totVol = days.reduce((s, d) => s + d.vol, 0);
+  const totMin = days.reduce((s, d) => s + d.min, 0);
+  const trainDays = days.filter(d => d.count > 0).length;
+  const isVol = state.chartMode === 'vol';
+  const vals = days.map(d => isVol ? d.vol : d.kcal);
+  const maxV = Math.max(...vals, 1);
+  const step = N > 14 ? Math.ceil(N / 6) : 1;
+  const bars = days.map((d, i) => `
+    <div class="bar-wrap">
+      <span class="bar-val">${vals[i] ? (isVol ? Math.round(vals[i] / 100) / 10 + 't' : Math.round(vals[i])) : ''}</span>
+      <div class="bar ${vals[i] ? '' : 'zero'}" style="height:${vals[i] ? Math.max(8, vals[i] / maxV * 92) : 3}px"></div>
+      <span class="bar-label">${(i % step === 0 || i === N - 1) ? fmtDateShort(d.key) : ''}</span>
+    </div>`).join('');
+
+  /* 部位分布（按组数） */
+  const partSets = {};
+  days.forEach(d => d.items.forEach(it => {
+    const n = it.type === 'cardio' ? 0 : (it.setList || []).length;
+    const k = catName(it.cat);
+    partSets[k] = (partSets[k] || 0) + (n || (it.type === 'cardio' ? 1 : 0));
+  }));
+  const parts = Object.entries(partSets).filter(e => e[1]).sort((a, b) => b[1] - a[1]);
+  const maxP = Math.max(...parts.map(p => p[1]), 1);
+  const partHTML = parts.length ? parts.map(p => `
+    <div class="part-row"><span class="pn">${esc(p[0])}</span>
+      <div class="part-bar"><i style="width:${p[1] / maxP * 100}%"></i></div>
+      <span class="pv">${p[1]} 组</span></div>`).join('')
+    : `<div class="empty" style="padding:20px 0">近 ${N} 天还没有训练</div>`;
+
+  page.innerHTML = `
+    <div class="page-title">训练统计
+      <div class="seg mini" id="rangeSeg">
+        ${[7, 30, 90].map(n => `<button data-d="${n}" class="${N === n ? 'on' : ''}">${n}天</button>`).join('')}
+      </div>
+    </div>
+    ${streakHTML()}
+    <div class="stats-grid">
+      <div class="stat-card"><div class="n g">${trainDays}<span style="font-size:12px;color:var(--sub)"> / ${N}天</span></div><div class="l">训练天数</div></div>
+      <div class="stat-card"><div class="n">${Math.round(totKcal)}</div><div class="l">${net ? '净消耗' : '总消耗'} kcal</div></div>
+      <div class="stat-card"><div class="n">${fmtHM(totMin)}</div><div class="l">训练时长</div></div>
+      <div class="stat-card"><div class="n">${fmtVol(totVol)}</div><div class="l">总训练容量</div></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-head"><span class="t">每日${isVol ? '训练容量' : '热量消耗'}</span>
+        <div class="seg mini" id="chartModeSeg">
+          <button data-m="kcal" class="${isVol ? '' : 'on'}">热量</button>
+          <button data-m="vol" class="${isVol ? 'on' : ''}">容量</button>
+        </div>
+      </div>
+      <div class="bars">${bars}</div>
+    </div>
+    <div class="chart-card"><div class="t" style="margin-bottom:12px">近 ${N} 天部位分布</div>${partHTML}</div>
+    ${balanceHTML()}
+    ${trendHTML()}
+    ${prHTML()}
+    ${weightTrendHTML()}`;
+}
+function streakHTML(){
+  const recs = Store.records();
+  let streak = 0;
+  let d = todayStr();
+  if (!(recs[d] || []).length) d = shiftDate(d, -1);
+  while ((recs[d] || []).length){ streak++; d = shiftDate(d, -1); }
+  const week = [];
+  for (let i = 6; i >= 0; i--){ const k = shiftDate(todayStr(), -i); week.push((recs[k] || []).length > 0); }
+  const cnt = week.filter(Boolean).length;
+  return `<div class="streak-card">
+    ${ico('flame')}
+    <div><div class="streak-n">${streak} 天</div><div class="streak-l">连续训练${streak ? '' : '（今天还没练）'} · 最近 7 天练了 ${cnt} 次</div></div>
+    <div class="dots-week">${week.map(b => `<i class="${b ? 'on' : ''}"></i>`).join('')}</div>
+  </div>`;
+}
+function balanceHTML(){
+  const recs = Store.records();
+  const last = {};
+  Object.keys(recs).forEach(d => (recs[d] || []).forEach(it => {
+    if (!last[it.cat] || d > last[it.cat]) last[it.cat] = d;
+  }));
+  const rows = CATS.filter(c => c.id !== 'cardio').map(c => {
+    const d = last[c.id];
+    const n = d ? daysBetween(d, todayStr()) : null;
+    const cls = n === null ? 'bad' : n <= 4 ? 'ok' : n <= 8 ? 'warn' : 'bad';
+    const txt = n === null ? '从未练过' : n === 0 ? '今天练过' : `${n} 天前`;
+    return { c, n: n === null ? 999 : n, cls, txt };
+  }).sort((a, b) => b.n - a.n);
+  const stale = rows.filter(r => r.n > 8);
+  return `<div class="chart-card">
+    <div class="t" style="margin-bottom:12px">部位平衡 · 距上次训练</div>
+    ${rows.map(r => `<div class="balance-row">
+      <span class="bn">${r.c.name}</span>
+      <span class="bd">${r.n <= 4 ? '状态不错' : r.n <= 8 ? '可以安排了' : '太久没练'}</span>
+      <span class="bt ${r.cls}">${r.txt}</span></div>`).join('')}
+    ${stale.length ? `<div class="note-line">建议优先安排：<b>${stale.slice(0, 3).map(r => r.c.name).join('、')}</b></div>` : ''}
+  </div>`;
+}
+function trendHTML(){
+  const recs = Store.records();
+  const byAid = {};
+  Object.keys(recs).forEach(date => (recs[date] || []).forEach(it => {
+    if (it.type === 'cardio') return;
+    (byAid[it.aid] = byAid[it.aid] || []).push({ date, it });
+  }));
+  const aids = Object.keys(byAid).filter(a => {
+    const ds = new Set(byAid[a].map(x => x.date));
+    return ds.size >= 2;
+  }).sort((a, b) => byAid[b].length - byAid[a].length);
+  if (!aids.length)
+    return `<div class="chart-card"><div class="t">单动作进步曲线</div>
+      <div class="empty" style="padding:20px 0">同一个动作记录满 2 天后<br>这里会显示重量变化</div></div>`;
+  if (!state.trendAid || !aids.includes(state.trendAid)) state.trendAid = aids[0];
+  const list = byAid[state.trendAid];
+  const byDate = {};
+  list.forEach(x => {
+    const k = x.date;
+    byDate[k] = byDate[k] || { maxW: 0, vol: 0 };
+    byDate[k].maxW = Math.max(byDate[k].maxW, maxWOf(x.it));
+    byDate[k].vol += volOf(x.it);
+  });
+  const dates = Object.keys(byDate).sort();
+  const base = dates[0];
+  const useW = dates.some(d => byDate[d].maxW > 0);
+  const pts = dates.map(d => ({ x: daysBetween(base, d), y: useW ? byDate[d].maxW : byDate[d].vol }));
+  const first = pts[0].y, lastv = pts[pts.length - 1].y;
+  const diff = lastv - first;
+  const name = (getAction(state.trendAid) || { name: list[0].it.name }).name;
+  return `<div class="chart-card">
+    <div class="chart-head"><span class="t">单动作进步曲线</span></div>
+    <div class="pick-wrap" style="margin-bottom:12px">
+      <select class="pick" id="trendPick" aria-label="选择动作">
+        ${aids.map(a => `<option value="${a}" ${a === state.trendAid ? 'selected' : ''}>${esc((getAction(a) || byAid[a][0].it).name)}（${new Set(byAid[a].map(x => x.date)).size}次）</option>`).join('')}
+      </select>${ico('chevron')}
+    </div>
+    ${lineChartSVG(pts, { color: 'var(--accent)', label: name + '趋势' })}
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:8px">
+      <span>${fmtDateShort(dates[0])} · ${useW ? fmtKg(first) + 'kg' : fmtVol(first)}</span>
+      <span style="color:${diff >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:700">
+        ${diff >= 0 ? '+' : ''}${useW ? fmtKg(diff) + 'kg' : fmtVol(Math.abs(diff))}</span>
+      <span>${fmtDateShort(dates[dates.length - 1])} · ${useW ? fmtKg(lastv) + 'kg' : fmtVol(lastv)}</span>
+    </div>
+    <div class="note-line">显示${useW ? '每次训练的最大重量' : '每次训练的总容量'}。想看别的动作，用上面的下拉框切换。</div>
+  </div>`;
+}
+function prHTML(){
+  const recs = Store.records();
+  const best = {};
+  Object.keys(recs).forEach(date => (recs[date] || []).forEach(it => {
+    if (it.type === 'cardio') return;
+    const w = maxWOf(it);
+    if (!w) return;
+    if (!best[it.aid] || w > best[it.aid].w) best[it.aid] = { w, date, name: it.name, ico: it.ico, reps: (it.setList || []).filter(s => s.w === w).reduce((m, s) => Math.max(m, s.r), 0) };
+  }));
+  const list = Object.values(best).sort((a, b) => b.w - a.w).slice(0, 8);
+  if (!list.length) return '';
+  return `<div class="chart-card">
+    <div class="t" style="margin-bottom:12px">个人纪录 · 最大重量</div>
+    ${list.map(b => `<div class="pr-row">${ico(b.ico || 'star')}
+      <span class="pn">${esc(b.name)}</span>
+      <span class="pv">${fmtKg(b.w)}kg × ${b.reps}</span>
+      <span class="pd">${fmtDateShort(b.date)}</span></div>`).join('')}
+  </div>`;
+}
+function weightTrendHTML(){
+  const ws = Store.weights().filter(w => w && w.weight && w.date).sort((a, b) => a.date < b.date ? -1 : 1);
+  const head = `<div class="chart-head"><span class="t">体重趋势</span>
+    <button class="mini-btn" id="statsAddWeightBtn">${ico('plus')}记一笔</button></div>`;
+  if (ws.length < 2)
+    return `<div class="chart-card">${head}<div class="empty" style="padding:18px 0">记满两次体重后<br>这里会按真实日期画出曲线</div></div>`;
+  const recent = ws.slice(-40);
+  const base = recent[0].date;
+  const pts = recent.map(w => ({ x: daysBetween(base, w.date), y: w.weight }));
+  const first = recent[0], last = recent[recent.length - 1];
+  const diff = last.weight - first.weight;
+  return `<div class="chart-card">${head}
+    ${lineChartSVG(pts, { color: 'var(--blue)', label: '体重趋势' })}
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:8px">
+      <span>${fmtDateShort(first.date)} · ${first.weight}kg</span>
+      <span style="color:${diff > 0 ? 'var(--red)' : diff < 0 ? 'var(--green)' : 'var(--dim)'};font-weight:700">
+        ${diff > 0 ? '+' : ''}${diff.toFixed(1)}kg</span>
+      <span>${fmtDateShort(last.date)} · ${last.weight}kg</span>
+    </div>
+  </div>`;
+}
+</script>
+<script>
+"use strict";
+/* ================= 我的 ================= */
+function bmiText(b){ return b < 18.5 ? '偏瘦' : b < 24 ? '正常' : b < 28 ? '超重' : '肥胖'; }
+function backupWarnHTML(){
+  const meta = Store.meta();
+  const hasData = Object.keys(Store.records()).length > 0;
+  if (!hasData) return '';
+  const days = meta.lastBackup ? daysBetween(meta.lastBackup, todayStr()) : null;
+  if (days !== null && days < 14) return '';
+  return `<div class="backup-warn">${ico('alert')}
+    <span>${days === null ? '你还没有导出过备份。' : `上次备份是 ${days} 天前。`}数据只存在这台设备的浏览器里，清理缓存或换设备就会丢失，建议现在导出一份。</span>
+  </div>`;
+}
+function weightListHTML(){
+  const all = Store.weights().filter(w => w && w.weight).sort((a, b) => a.date < b.date ? -1 : 1);
+  if (!all.length) return '<div class="empty" style="padding:14px 0">还没有体重记录</div>';
+  const ws = all.slice(-12).reverse();
+  return ws.map((w, i) => {
+    const prev = ws[i + 1];
+    const diff = prev ? w.weight - prev.weight : 0;
+    const d = Math.abs(diff) < 0.05 ? '<span class="w-diff w-diff0">—</span>'
+      : diff > 0 ? `<span class="w-diff up">↑${diff.toFixed(1)}</span>`
+      : `<span class="w-diff down">↓${Math.abs(diff).toFixed(1)}</span>`;
+    return `<div class="w-item">
+      <span class="w-date">${fmtDate(w.date)}</span>
+      <span class="w-val">${w.weight} kg</span>${d}
+      <button class="hi-del" data-wdel="${esc(w.date)}" aria-label="删除">${ico('trash')}</button>
+    </div>`;
+  }).join('');
+}
+function templateListHTML(){
+  const tpls = Store.templates();
+  if (!tpls.length) return `<div class="empty" style="padding:14px 0">还没有模板<br>在「历史」页点某天的「存为模板」就能创建</div>`;
+  return tpls.map(t => `<div class="list-item">
+    <span class="li-name">${ico('layers')}<span>${esc(t.name)}<br><small>${t.items.length} 个动作 · ${esc(t.items.map(i => (getAction(i.aid) || {}).name).filter(Boolean).slice(0, 3).join('、'))}…</small></span></span>
+    <span class="li-acts">
+      <button data-tplapply="${t.id}" style="color:var(--accent2)">${ico('play')}</button>
+      <button class="del" data-tpldel="${t.id}">${ico('trash')}</button>
+    </span>
+  </div>`).join('');
+}
+function customListHTML(){
+  const custom = Store.custom();
+  if (!custom.length) return '<div class="empty" style="padding:14px 0">还没有自定义动作</div>';
+  return custom.map(c => `<div class="list-item">
+    <span class="li-name">${ico(c.ico || 'star')}<span>${esc(c.name)} <small>${catName(c.cat)}${c.type === 'cardio' ? ' · 有氧' : ''}</small></span></span>
+    <span class="li-acts">
+      <button data-cedit="${c.id}">${ico('edit')}</button>
+      <button class="del" data-cdel="${c.id}">${ico('trash')}</button>
+    </span>
+  </div>`).join('');
+}
+function customFormHTML(){
+  const d = state.customDraft;
+  const isEdit = !!state.editingCustom;
+  const p = Store.profile();
+  const stdKg = d.c ? Math.round(d.c * (p.weight || 70) * 2) / 2 : '';
+  return `
+    <div class="form-row one">
+      <div class="form-item"><label>动作名称</label>
+        <input class="txt" type="text" id="customName" maxlength="20" placeholder="如：绳索单臂侧平举" value="${esc(d.name || '')}"></div>
+    </div>
+    <div class="form-row one">
+      <div class="form-item"><label>类型</label>
+        <div class="seg" id="customTypeSeg">
+          <button data-t="weight" class="${d.type === 'weight' ? 'on' : ''}">力量</button>
+          <button data-t="cardio" class="${d.type === 'cardio' ? 'on' : ''}">有氧</button>
+        </div></div>
+    </div>
+    <div class="form-row one">
+      <div class="form-item"><label>所属分类</label>
+        <div class="seg wrap" id="customCatSeg">
+          ${CATS.map(c => `<button data-c="${c.id}" class="${d.cat === c.id ? 'on' : ''}">${c.name}</button>`).join('')}
+        </div></div>
+    </div>
+    ${d.type === 'weight' ? `
+    <div class="form-row one">
+      <div class="form-item"><label>标准重量（可选）· 你能做 6-8 次的重量，用来生成参考区间</label>
+        <input class="num" type="number" inputmode="decimal" id="customStd" min="0" max="500" step="2.5" placeholder="留空则不显示参考" value="${stdKg}"></div>
+    </div>` : `
+    <div class="form-row one">
+      <div class="form-item"><label>热量参照</label>
+        <div class="pick-wrap"><select class="pick" id="customMode">
+          ${Object.keys(CARDIO_MODES).map(k => `<option value="${k}" ${d.mode === k ? 'selected' : ''}>${CARDIO_MODES[k].name}</option>`).join('')}
+        </select>${ico('chevron')}</div></div>
+    </div>`}
+    <div class="form-row one">
+      <div class="form-item"><label>图标</label>
+        <div class="icon-pick" id="customIcons">
+          ${ICON_CHOICES.map(n => `<button data-ico="${n}" class="${d.ico === n ? 'on' : ''}" aria-label="${n}">${ico(n)}</button>`).join('')}
+        </div></div>
+    </div>
+    <div class="btn-row">
+      ${isEdit ? '<button class="btn-save secondary" id="customCancel">取消</button>' : ''}
+      <button class="btn-save secondary" id="customSave">${isEdit ? '保存修改' : '添加动作'}</button>
+    </div>`;
+}
+function renderProfile(){
+  const p = Store.profile(), st = S();
+  const bmi = p.weight / Math.pow((p.height || 175) / 100, 2);
+  const bmr = Math.round(bmrOf(p));
+  const todayKcal = dayKcal(Store.records()[todayStr()] || [], false);
+  $('#page-profile').innerHTML = `
+  <div class="page-title">我的</div>
+  ${backupWarnHTML()}
+
+  <div class="form-card">
+    <div class="t">${ico('ruler')}身体数据</div>
+    <div class="form-row">
+      <div class="form-item"><label>身高 (cm)</label><input class="num" type="number" inputmode="decimal" id="inHeight" value="${p.height}"></div>
+      <div class="form-item"><label>体重 (kg)</label><input class="num" type="number" inputmode="decimal" id="inWeight" value="${p.weight}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-item"><label>年龄</label><input class="num" type="number" inputmode="numeric" id="inAge" value="${p.age}"></div>
+      <div class="form-item"><label>性别</label>
+        <div class="seg" id="genderSeg">
+          <button data-g="male" class="${p.gender === 'male' ? 'on' : ''}">男</button>
+          <button data-g="female" class="${p.gender === 'female' ? 'on' : ''}">女</button>
+        </div></div>
+    </div>
+    <div class="btn-row"><button class="btn-save" id="saveProfileBtn">保存身体数据</button></div>
+    <div class="note-line">BMI <b>${bmi.toFixed(1)}</b>（${bmiText(bmi)}） · 基础代谢约 <b>${bmr}</b> kcal/天
+      · 今天训练额外消耗 <b>${Math.round(todayKcal)}</b> kcal</div>
+    <div class="note-line">改完体重点保存，会自动往下面的体重记录里补一条（同一天只留最新值）。热量公式：MET × 体重 × 时长 × 1.05。</div>
+  </div>
+
+  <div class="form-card">
+    <div class="t">${ico('scale')}体重记录<small>最近 12 条</small></div>
+    <div class="btn-row" style="margin-top:0"><button class="btn-save secondary" id="addWeightBtn">${ico('plus')}记录今天的体重</button></div>
+    <div style="margin-top:12px">${weightListHTML()}</div>
+  </div>
+
+  <div class="form-card">
+    <div class="t">${ico('layers')}训练模板<small>共 ${Store.templates().length} 个</small></div>
+    ${templateListHTML()}
+    <div class="note-line">套用模板会把动作和上次的重量直接写进当前日期，再逐个点开微调就行。</div>
+  </div>
+
+  <div class="form-card">
+    <div class="t">${ico('gear')}记录与显示</div>
+    <div class="form-item" style="margin-bottom:12px"><label>力量训练默认强度</label>
+      <div class="seg" id="defLevelSeg">
+        ${STRENGTH_LEVELS.map(l => `<button data-lv="${l.id}" class="${st.defaultLevel === l.id ? 'on' : ''}">${l.name}</button>`).join('')}
+      </div></div>
+    <div class="form-row">
+      <div class="form-item"><label>默认组间休息 (秒)</label><input class="num" type="number" inputmode="numeric" id="inRest" min="15" max="300" step="15" value="${st.defaultRest}"></div>
+      <div class="form-item"><label>默认每组时间 (秒)</label><input class="num" type="number" inputmode="numeric" id="inWork" min="10" max="180" step="5" value="${st.defaultWork}"></div>
+    </div>
+    <div class="form-item" style="margin-bottom:12px"><label>热量显示方式</label>
+      <div class="seg" id="netSeg">
+        <button data-n="0" class="${st.netKcal ? '' : 'on'}">总消耗</button>
+        <button data-n="1" class="${st.netKcal ? 'on' : ''}">净消耗</button>
+      </div>
+      <div class="note-line">净消耗扣掉了同一时间段的基础代谢，更接近「比躺着多烧了多少」，数值会比总消耗小。</div>
+    </div>
+    <div class="form-item" style="margin-bottom:12px"><label>打勾某组后自动开始休息计时</label>
+      <div class="seg" id="autoRestSeg">
+        <button data-v="1" class="${st.autoRest ? 'on' : ''}">开启</button>
+        <button data-v="0" class="${st.autoRest ? '' : 'on'}">关闭</button>
+      </div></div>
+    <div class="form-item" style="margin-bottom:12px"><label>休息结束提示音与震动</label>
+      <div class="seg" id="soundSeg">
+        <button data-v="1" class="${st.sound ? 'on' : ''}">开启</button>
+        <button data-v="0" class="${st.sound ? '' : 'on'}">关闭</button>
+      </div></div>
+    <div class="form-item"><label>主题</label>
+      <div class="seg" id="themeSeg">
+        <button data-th="auto" class="${st.theme === 'auto' ? 'on' : ''}">跟随系统</button>
+        <button data-th="dark" class="${st.theme === 'dark' ? 'on' : ''}">${ico('moon')}深色</button>
+        <button data-th="light" class="${st.theme === 'light' ? 'on' : ''}">${ico('sun')}浅色</button>
+      </div></div>
+    <div class="btn-row"><button class="btn-save secondary" id="saveSettingsBtn">保存设置</button></div>
+  </div>
+
+  <div class="form-card">
+    <div class="t">${ico('plus')}自定义动作<small>共 ${Store.custom().length} 个</small></div>
+    <div id="customForm">${customFormHTML()}</div>
+    <div style="margin-top:14px" id="customList">${customListHTML()}</div>
+  </div>
+
+  <div class="form-card">
+    <div class="t">${ico('db')}数据管理</div>
+    <button class="menu-btn" id="exportBtn">${ico('download')} 导出备份<small>下载 JSON 文件</small></button>
+    <button class="menu-btn" id="importBtn">${ico('upload')} 导入备份<small>可选合并或覆盖</small></button>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+    <button class="menu-btn" id="clearBtn" style="color:var(--red)">${ico('trash')} 清空全部数据<small>训练、体重、设置全部删除</small></button>
+    <div class="note-line">共 ${Object.keys(Store.records()).length} 天训练记录、${Store.weights().length} 条体重记录。
+      ${Store.meta().lastBackup ? '上次备份：' + fmtDate(Store.meta().lastBackup) : '尚未备份过'}</div>
+  </div>
+  <div class="about-note">所有数据只保存在这台设备的浏览器里，不会上传任何服务器<br>换手机或清理浏览器前，记得先导出备份</div>`;
+}
+function refreshCustomUI(){
+  invalidateActions();
+  const f = $('#customForm'), l = $('#customList');
+  if (f) f.innerHTML = customFormHTML();
+  if (l) l.innerHTML = customListHTML();
+  renderActions();
+}
+
+/* ================= 体重 ================= */
+function openWeightModal(){
+  const p = Store.profile();
+  openModal(`<div class="modal-title">${ico('scale')} 记录体重</div>
+    <div class="form-item"><label>体重 (kg)</label>
+      <input class="num" type="number" id="wInput" step="0.1" min="20" max="400" inputmode="decimal" value="${p.weight || 60}"></div>
+    <div class="modal-row">
+      <button class="btn-save secondary" data-mo="cancel">取消</button>
+      <button class="btn-save" data-mo="ok">保存</button></div>`);
+  $('#modal').querySelector('[data-mo="cancel"]').onclick = closeModal;
+  $('#modal').querySelector('[data-mo="ok"]').onclick = saveWeight;
+  setTimeout(() => { const i = $('#wInput'); if (i){ i.focus(); i.select(); } }, 90);
+}
+function recordWeight(v){
+  const ws = Store.weights();
+  const t = todayStr();
+  const i = ws.findIndex(w => w.date === t);
+  if (i >= 0) ws[i].weight = v; else ws.push({ date: t, weight: v });
+  Store.set('weights', ws);
+  const p = Store.profile();
+  p.weight = v;
+  Store.set('profile', p);
+}
+function saveWeight(){
+  const v = num($('#wInput').value, 0);
+  if (!(v > 20 && v < 400)){ toast('请输入 20~400 之间的体重'); return; }
+  recordWeight(Math.round(v * 10) / 10);
+  closeModal();
+  renderProfile();
+  const active = document.querySelector('.page.active');
+  if (active && active.id === 'page-stats') renderStats();
+  toast('体重已记录');
+}
+
+/* ================= 导入导出 ================= */
+function exportData(){
+  const data = Store.snapshot();
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '健身记录备份_' + todayStr() + '.json';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  const meta = Store.meta();
+  meta.lastBackup = todayStr();
+  Store.set('meta', meta);
+  renderProfile();
+  toast('备份已导出');
+}
+function mergeRecords(oldR, newR){
+  const out = clone(oldR);
+  Object.keys(newR || {}).forEach(date => {
+    const list = Array.isArray(newR[date]) ? newR[date] : [];
+    if (!out[date]) { out[date] = list; return; }
+    const seen = new Set(out[date].map(x => x.id + '|' + x.aid + '|' + x.time));
+    list.forEach(x => { if (!seen.has(x.id + '|' + x.aid + '|' + x.time)) out[date].push(x); });
+  });
+  return out;
+}
+function doImport(data, mode){
+  const before = Store.snapshot();
+  try { localStorage.setItem('fit_preimport', JSON.stringify(before)); } catch (e) {}
+  if (mode === 'merge'){
+    Store.set('records', mergeRecords(Store.records(), data.records));
+    const cu = Store.custom();
+    (data.custom || []).forEach(c => { if (!cu.some(x => x.id === c.id || x.name === c.name)) cu.push(c); });
+    Store.set('custom', cu);
+    const ws = Store.weights();
+    (data.weights || []).forEach(w => { if (!ws.some(x => x.date === w.date)) ws.push(w); });
+    Store.set('weights', ws.sort((a, b) => a.date < b.date ? -1 : 1));
+    const tp = Store.templates();
+    (data.templates || []).forEach(t => { if (!tp.some(x => x.id === t.id)) tp.push(t); });
+    Store.set('templates', tp);
+  } else {
+    Store.set('records', data.records || {});
+    Store.set('custom', data.custom || []);
+    Store.set('weights', data.weights || []);
+    Store.set('templates', data.templates || []);
+    if (data.profile) Store.set('profile', data.profile);
+    if (data.settings) Store.set('settings', { ...DEFAULTS.settings, ...data.settings });
+  }
+  const meta = Store.meta();
+  meta.schema = 0;
+  Store.set('meta', meta);
+  migrate();
+  invalidateActions();
+  applyTheme();
+  renderProfile(); refreshAll();
+  toast(mode === 'merge' ? '已合并导入' : '已覆盖导入', () => {
+    try {
+      const raw = localStorage.getItem('fit_preimport');
+      if (!raw) return;
+      const b = JSON.parse(raw);
+      ['records', 'custom', 'weights', 'templates', 'profile', 'settings'].forEach(k => { if (b[k] !== undefined) Store.set(k, b[k]); });
+      invalidateActions(); applyTheme(); renderProfile(); refreshAll(); hideToast();
+      toast('已还原到导入前');
+    } catch (e) {}
+  });
+}
+function askImport(data){
+  const days = Object.keys(data.records || {}).length;
+  openModal(`<div class="modal-title">导入备份</div>
+    <div class="modal-text">文件里有 <b>${days}</b> 天训练记录${data.exportedAt ? '，导出于 ' + data.exportedAt.slice(0, 10) : ''}。<br><br>
+      <b>合并</b>：保留现有记录，只补充缺少的内容（推荐）。<br>
+      <b>覆盖</b>：删除本机现有记录，完全替换成文件里的内容。</div>
+    <div class="modal-row">
+      <button class="btn-save secondary" data-mo="cancel">取消</button>
+      <button class="btn-save secondary" data-mo="replace">覆盖</button>
+      <button class="btn-save" data-mo="merge">合并</button></div>`);
+  const m = $('#modal');
+  m.querySelector('[data-mo="cancel"]').onclick = closeModal;
+  m.querySelector('[data-mo="merge"]').onclick = () => { closeModal(); doImport(data, 'merge'); };
+  m.querySelector('[data-mo="replace"]').onclick = () => { closeModal(); doImport(data, 'replace'); };
+}
+function clearAll(){
+  confirmBox('清空全部数据',
+    '训练记录、体重记录、自定义动作、模板和个人设置都会被删除，<b>无法恢复</b>。建议先导出一份备份。',
+    '确认清空', () => {
+      ['profile', 'records', 'custom', 'weights', 'templates', 'settings', 'meta', 'preimport'].forEach(k => {
+        localStorage.removeItem('fit_' + k);
+        delete cache[k];
+        IDB.mirror(k, null);
+      });
+      invalidateActions();
+      applyTheme();
+      state.date = todayStr(); state.dateTouched = false;
+      applyDateUI(); renderCats(); renderProfile(); refreshAll();
+      toast('全部数据已清空');
+    }, true);
+}
+</script>
+<script>
+"use strict";
+/* ================= 页面切换 ================= */
+function switchTab(name){
+  $$('.tab').forEach(x => x.classList.toggle('active', x.dataset.tab === name));
+  $$('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + name));
+  const p = document.querySelector('.page.active');
+  if (p) p.scrollTop = 0;
+  if (name === 'history'){ state.histPage = 1; renderHistory(); }
+  if (name === 'stats') renderStats();
+  if (name === 'profile') renderProfile();
+}
+
+/* ================= 删除（带撤销） ================= */
+function deleteRecord(date, idx){
+  const recs = Store.records();
+  const items = recs[date];
+  if (!items || !items[idx]) return;
+  const [removed] = items.splice(idx, 1);
+  if (!items.length) delete recs[date];
+  Store.set('records', recs);
+  refreshAll();
+  toast(`已删除 ${removed.name}`, () => {
+    const r = Store.records();
+    const list = r[date] = r[date] || [];
+    list.splice(Math.min(idx, list.length), 0, removed);
+    Store.set('records', r);
+    refreshAll();
+    hideToast();
+    toast('已撤销删除');
+  });
+}
+function openEdit(date, idx){
+  const it = (Store.records()[date] || [])[idx];
+  if (!it) return;
+  const meta = getAction(it.aid) || {
+    id: it.aid, name: it.name, ico: it.ico || 'star', cat: it.cat, type: it.type,
+    mode: it.mode, met: num(it.met, 4.5), c: 0, load: 'bar', compound: 0,
+  };
+  openDrawer(meta, it, { date, idx });
+}
+
+/* ================= 全局事件 ================= */
+function bindGlobalEvents(){
+  $$('.tab').forEach(tab => tab.onclick = () => switchTab(tab.dataset.tab));
+  $('#kcalBadge').onclick = () => switchTab('stats');
+
+  /* 日期 */
+  $('#dbDateInput').addEventListener('change', e => {
+    if (!e.target.value) return;
+    state.date = e.target.value;
+    state.dateTouched = state.date !== todayStr();
+    applyDateUI(); renderTodayList();
+  });
+  $('#dbToday').onclick = () => {
+    state.date = todayStr(); state.dateTouched = false;
+    applyDateUI(); renderTodayList();
+  };
+
+  /* 搜索 */
+  const si = $('#searchInput');
+  si.addEventListener('input', () => {
+    state.q = si.value;
+    $('#searchBar').classList.toggle('has-val', !!si.value);
+    renderActions();
+  });
+  $('#searchClear').onclick = () => { si.value = ''; state.q = ''; $('#searchBar').classList.remove('has-val'); renderActions(); si.focus(); };
+
+  /* 分类 */
+  $('#catScroll').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    state.cat = chip.dataset.cat;
+    renderCats(); renderActions();
+  });
+
+  /* 动作网格 */
+  $('#actionGrid').addEventListener('click', e => {
+    const add = e.target.closest('[data-add]');
+    if (add){
+      switchTab('profile');
+      setTimeout(() => { const i = $('#customName'); if (i){ i.scrollIntoView({ block: 'center' }); i.focus(); } }, 320);
+      return;
+    }
+    const card = e.target.closest('.act-card');
+    if (!card) return;
+    const a = getAction(card.dataset.aid);
+    if (a) openDrawer(a);
+  });
+
+  /* 今日列表 + 历史页：编辑 / 删除 */
+  const listClick = e => {
+    const del = e.target.closest('[data-del]');
+    if (del){
+      const [date, idx] = del.dataset.del.split('|');
+      deleteRecord(date, +idx);
+      return true;
+    }
+    const row = e.target.closest('[data-edit]');
+    if (row){
+      const [date, idx] = row.dataset.edit.split('|');
+      openEdit(date, +idx);
+      return true;
+    }
+    return false;
+  };
+  $('#todayList').addEventListener('click', listClick);
+  $('#page-history').addEventListener('click', e => {
+    if (listClick(e)) return;
+    const cd = e.target.closest('[data-copyday]');
+    if (cd){ copyDayToToday(cd.dataset.copyday); return; }
+    const tp = e.target.closest('[data-tpl]');
+    if (tp){ saveDayAsTemplate(tp.dataset.tpl); return; }
+    const more = e.target.closest('[data-more]');
+    if (more){ state.histPage++; renderHistory(); return; }
+  });
+
+  /* 统计页 */
+  $('#page-stats').addEventListener('click', e => {
+    const r = e.target.closest('#rangeSeg button');
+    if (r){ state.histDays = +r.dataset.d; renderStats(); return; }
+    const m = e.target.closest('#chartModeSeg button');
+    if (m){ state.chartMode = m.dataset.m; renderStats(); return; }
+    if (e.target.closest('#statsAddWeightBtn')){ openWeightModal(); return; }
+  });
+  $('#page-stats').addEventListener('change', e => {
+    if (e.target.id === 'trendPick'){ state.trendAid = e.target.value; renderStats(); }
+  });
+
+  /* 我的 */
+  $('#page-profile').addEventListener('click', e => {
+    const t = e.target;
+    const segPick = (sel, btn) => { $(sel).querySelectorAll('button').forEach(x => x.classList.remove('on')); btn.classList.add('on'); };
+
+    const g = t.closest('#genderSeg button');
+    if (g){ segPick('#genderSeg', g); const p = Store.profile(); p.gender = g.dataset.g; Store.set('profile', p); return; }
+
+    const dl = t.closest('#defLevelSeg button');
+    if (dl){ segPick('#defLevelSeg', dl); const s = S(); s.defaultLevel = dl.dataset.lv; Store.set('settings', s); return; }
+
+    const ns = t.closest('#netSeg button');
+    if (ns){ segPick('#netSeg', ns); const s = S(); s.netKcal = ns.dataset.n === '1'; Store.set('settings', s); updateTopKcal(); renderTodayList(); return; }
+
+    const ar = t.closest('#autoRestSeg button');
+    if (ar){ segPick('#autoRestSeg', ar); const s = S(); s.autoRest = ar.dataset.v === '1'; Store.set('settings', s); return; }
+
+    const so = t.closest('#soundSeg button');
+    if (so){ segPick('#soundSeg', so); const s = S(); s.sound = so.dataset.v === '1'; Store.set('settings', s); if (s.sound) notifyDone(); return; }
+
+    const th = t.closest('#themeSeg button');
+    if (th){ segPick('#themeSeg', th); const s = S(); s.theme = th.dataset.th; Store.set('settings', s); applyTheme(); return; }
+
+    if (t.closest('#saveProfileBtn')){
+      const h = num($('#inHeight').value, 0), w = num($('#inWeight').value, 0), a = num($('#inAge').value, 0);
+      if (h < 80 || h > 250){ toast('身高请填 80~250 cm'); return; }
+      if (w < 25 || w > 300){ toast('体重请填 25~300 kg'); return; }
+      const p = Store.profile();
+      const changed = Math.abs(num(p.weight, 0) - w) > 0.05;
+      p.height = h;
+      if (a > 10 && a < 100) p.age = a;
+      Store.set('profile', p);
+      if (changed) recordWeight(Math.round(w * 10) / 10); else { p.weight = w; Store.set('profile', p); }
+      renderProfile();
+      toast(changed ? '已保存，并记了一条体重' : '身体数据已保存');
+      return;
+    }
+    if (t.closest('#saveSettingsBtn')){
+      const s = S();
+      s.defaultRest = clamp(Math.round(num($('#inRest').value, 90)), 15, 300);
+      s.defaultWork = clamp(Math.round(num($('#inWork').value, 40)), 10, 180);
+      Store.set('settings', s);
+      renderProfile();
+      toast('设置已保存');
+      return;
+    }
+    if (t.closest('#addWeightBtn')){ openWeightModal(); return; }
+
+    const wd = t.closest('[data-wdel]');
+    if (wd){
+      const date = wd.dataset.wdel;
+      const ws = Store.weights();
+      const i = ws.findIndex(x => x.date === date);
+      if (i < 0) return;
+      const [rm] = ws.splice(i, 1);
+      Store.set('weights', ws);
+      renderProfile();
+      toast('已删除体重记录', () => {
+        const w2 = Store.weights(); w2.push(rm);
+        Store.set('weights', w2.sort((a, b) => a.date < b.date ? -1 : 1));
+        renderProfile(); hideToast();
+      });
+      return;
+    }
+
+    const ta = t.closest('[data-tplapply]');
+    if (ta){ applyTemplate(ta.dataset.tplapply); return; }
+    const td = t.closest('[data-tpldel]');
+    if (td){
+      const tpls = Store.templates();
+      const i = tpls.findIndex(x => x.id === td.dataset.tpldel);
+      if (i < 0) return;
+      const [rm] = tpls.splice(i, 1);
+      Store.set('templates', tpls);
+      renderProfile();
+      toast(`已删除模板「${rm.name}」`, () => {
+        const l = Store.templates(); l.push(rm); Store.set('templates', l); renderProfile(); hideToast();
+      });
+      return;
+    }
+
+    /* 自定义动作 */
+    const ct = t.closest('#customTypeSeg button');
+    if (ct){ state.customDraft.type = ct.dataset.t; if (ct.dataset.t === 'cardio' && !state.customDraft.mode) state.customDraft.mode = 'hiit'; readCustomForm(); $('#customForm').innerHTML = customFormHTML(); return; }
+    const cc = t.closest('#customCatSeg button');
+    if (cc){ segPick('#customCatSeg', cc); state.customDraft.cat = cc.dataset.c; return; }
+    const ci = t.closest('#customIcons button');
+    if (ci){ segPick('#customIcons', ci); state.customDraft.ico = ci.dataset.ico; return; }
+    if (t.closest('#customCancel')){ state.editingCustom = null; state.customDraft = { cat: 'chest', ico: 'star', type: 'weight', load: 'bar', c: 0 }; refreshCustomUI(); return; }
+    if (t.closest('#customSave')){ saveCustom(); return; }
+    const ce = t.closest('[data-cedit]');
+    if (ce){
+      const c = Store.custom().find(x => x.id === ce.dataset.cedit);
+      if (!c) return;
+      state.editingCustom = c.id;
+      state.customDraft = { ...c };
+      $('#customForm').innerHTML = customFormHTML();
+      $('#customForm').scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    const cd = t.closest('[data-cdel]');
+    if (cd){
+      const c = Store.custom().find(x => x.id === cd.dataset.cdel);
+      if (!c) return;
+      confirmBox('删除自定义动作', `确定删除「${esc(c.name)}」？已经记录的历史不会受影响。`, '删除', () => {
+        Store.set('custom', Store.custom().filter(x => x.id !== c.id));
+        if (state.editingCustom === c.id){ state.editingCustom = null; state.customDraft = { cat: 'chest', ico: 'star', type: 'weight', load: 'bar', c: 0 }; }
+        refreshCustomUI();
+        renderProfile();
+        toast('已删除');
+      }, true);
+      return;
+    }
+
+    if (t.closest('#exportBtn')){ exportData(); return; }
+    if (t.closest('#importBtn')){ $('#importFile').click(); return; }
+    if (t.closest('#clearBtn')){ clearAll(); return; }
+  });
+  $('#page-profile').addEventListener('change', e => {
+    if (e.target.id === 'customMode') state.customDraft.mode = e.target.value;
+    if (e.target.id !== 'importFile') return;
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const data = JSON.parse(reader.result);
+        if (!data || typeof data !== 'object' || typeof data.records !== 'object') throw new Error('bad');
+        askImport(data);
+      } catch (err) { toast('这个文件不是本应用导出的备份'); }
+    };
+    reader.onerror = () => toast('文件读取失败');
+    reader.readAsText(file);
+  });
+
+  /* 抽屉 / 弹层 / 计时器 */
+  $('#drawerClose').onclick = closeDrawer;
+  $('#drawerMask').onclick = closeDrawer;
+  $('#modalMask').onclick = closeModal;
+  $('#restStop').onclick = () => Rest.stop();
+  $('#restPlus').onclick = () => Rest.add(30);
+  $('#toast').querySelector('.undo').onclick = () => { if (_undoFn) _undoFn(); };
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Escape') return;
+    if ($('#modal').classList.contains('show')) closeModal();
+    else if ($('#drawer').classList.contains('show')) closeDrawer();
+  });
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (S().theme === 'auto') applyTheme(); });
+}
+function readCustomForm(){
+  const n = $('#customName'), s = $('#customStd'), m = $('#customMode');
+  if (n) state.customDraft.name = n.value;
+  if (s) state.customDraft._std = num(s.value, 0);
+  if (m) state.customDraft.mode = m.value;
+}
+function saveCustom(){
+  readCustomForm();
+  const d = state.customDraft;
+  const name = (d.name || '').trim();
+  if (!name){ toast('请填写动作名称'); return; }
+  const dup = Store.custom().some(c => c.name === name && c.id !== state.editingCustom)
+    || BUILTIN.some(b => b.name === name);
+  if (dup){ toast('已经有同名动作了'); return; }
+  const p = Store.profile();
+  const custom = Store.custom();
+  const obj = {
+    id: state.editingCustom || ('c_' + Date.now()),
+    cat: d.cat || 'chest', name, ico: d.ico || 'star',
+    type: d.type === 'cardio' ? 'cardio' : 'weight',
+    compound: 0, custom: 1,
+  };
+  if (obj.type === 'cardio'){
+    obj.mode = d.mode || 'hiit';
+    obj.met = (CARDIO_MODES[obj.mode].levels || [6])[1] || 6;
+  } else {
+    obj.c = d._std > 0 ? +(d._std / (p.weight || 70)).toFixed(3) : num(d.c, 0);
+    obj.load = 'bar'; obj.met = 4.2;
+  }
+  const i = custom.findIndex(c => c.id === obj.id);
+  if (i >= 0) custom[i] = obj; else custom.push(obj);
+  Store.set('custom', custom);
+  state.editingCustom = null;
+  state.customDraft = { cat: obj.cat, ico: 'star', type: 'weight', load: 'bar', c: 0 };
+  invalidateActions();
+  renderProfile();
+  toast(i >= 0 ? '已保存修改' : `已添加「${name}」`);
+}
+
+/* ================= 跨天翻转 ================= */
+let _lastDay = todayStr();
+function checkDayFlip(){
+  const t = todayStr();
+  if (t === _lastDay){ if (Rest.id) Rest.tick(); return; }
+  _lastDay = t;
+  if (!state.dateTouched){
+    state.date = t;
+    applyDateUI();
+  }
+  refreshAll();
+}
+
+/* ================= PWA manifest ================= */
+function injectManifest(){
+  try {
+    const icon = encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="40" fill="#0d0f14"/><g fill="none" stroke="#ff8c2b" stroke-width="12" stroke-linecap="round"><path d="M28 96h136"/><rect x="40" y="64" width="20" height="64" rx="9"/><rect x="132" y="64" width="20" height="64" rx="9"/><path d="M74 76v40M118 76v40"/></g></svg>`);
+    const manifest = {
+      name: '我的健身记录', short_name: '健身记录', start_url: '.', display: 'standalone',
+      background_color: '#0d0f14', theme_color: '#0d0f14', lang: 'zh-CN',
+      icons: [{ src: 'data:image/svg+xml,' + icon, sizes: 'any', type: 'image/svg+xml', purpose: 'any' }],
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
+    const link = document.createElement('link');
+    link.rel = 'manifest'; link.href = url;
+    document.head.appendChild(link);
+  } catch (e) {}
+}
+
+/* ================= 启动 ================= */
+async function init(){
+  await IDB.open();
+  const restored = await IDB.restoreIfEmpty();
+  if (restored) Object.keys(cache).forEach(k => delete cache[k]);
+  migrate();
+  applyTheme();
+  injectManifest();
+  state.date = todayStr();
+  state.customDraft.cat = 'chest';
+  applyDateUI();
+  renderCats();
+  renderActions();
+  renderTodayList();
+  updateTopKcal();
+  bindGlobalEvents();
+  setInterval(checkDayFlip, 20000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDayFlip(); });
+  window.addEventListener('focus', checkDayFlip);
+  if (restored) setTimeout(() => toast('浏览器清理过数据，已从本地副本恢复'), 700);
+  else if (localStorage.getItem('fit_profile') === null)
+    setTimeout(() => toast('第一次使用：先到「我的」填身高体重'), 900);
+  else {
+    const meta = Store.meta();
+    const days = meta.lastBackup ? daysBetween(meta.lastBackup, todayStr()) : 999;
+    if (days > 21 && Object.keys(Store.records()).length > 3)
+      setTimeout(() => toast('很久没备份了，建议到「我的」导出一份'), 1200);
+  }
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
+</script>
+</body>
+</html>
