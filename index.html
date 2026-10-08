@@ -620,7 +620,7 @@ const CATS = [
 const catName = id => (CATS.find(c => c.id === id) || { name: id || '其他' }).name;
 
 /* 负重方式：bar=器械/杠铃总重  db=哑铃单只  machine=配重片  cable=绳索配重  kb=壶铃  bw=自重 */
-const LOAD_TXT = { bar: '杠铃总重（含杆）', db: '单只哑铃重量', machine: '配重片重量', cable: '绳索配重', kb: '壶铃重量', bw: '自重' };
+const LOAD_TXT = { bar: '杠铃总重（含杆）', db: '单只哑铃重量', machine: '配重片重量', cable: '绳索配重', kb: '壶铃重量', bw: '自重（额外负重填重量栏）', smith: '史密斯片重', band: '弹力带等效重量', other: '重量' };
 
 /* 动作库：c = 参考重量系数（×体重 ≈ 可做6-8次的重量），0 表示自重 */
 const BUILTIN = [
@@ -783,61 +783,249 @@ const ICON_CHOICES = ['barbell','dumbbell','kettlebell','machine','cable','smith
   'plank','legraise','twist','abwheel','burpee','swing','clean','carry','rope2','slam','sled','boxjump','backext',
   'run','walk','hill','stairs','bike','elliptical','jumprope','swim','hike','rower','bolt','boxing','star'];
 
-/* 有氧模式：levels=[轻松,中等,激烈] 的 MET；speed 类按速度算 */
+/* 有氧模式 —— MET 全部对齐 2024 Adult Compendium，括号内为活动编码 */
 const CARDIO_MODES = {
-  run:        { name:'跑步',    kind:'speed', def:8,   min:4,  max:20, step:0.5 },
+  run:        { name:'跑步',    kind:'speed', def:9,   min:4,  max:22, step:0.5 },
   walk:       { name:'快走',    kind:'speed', def:5.5, min:3,  max:9,  step:0.5 },
-  incline:    { name:'爬坡走',  kind:'slope', def:5.6, min:3,  max:8,  step:0.5 },
-  stairs:     { name:'爬楼梯',   levels:[7.0, 8.5, 10.5] },
-  cycle:      { name:'骑行',     levels:[6.0, 8.0, 10.0] },
-  spin:       { name:'动感单车', levels:[6.8, 8.5, 11.0] },
-  airbike:    { name:'风阻单车', levels:[8.0, 11.0, 14.0] },
-  elliptical: { name:'椭圆机',   levels:[4.6, 5.8, 7.0] },
-  rower:      { name:'划船机',   levels:[7.0, 8.5, 10.0] },
-  ski:        { name:'滑雪机',   levels:[7.0, 9.0, 11.0] },
-  rope:       { name:'跳绳',     levels:[8.0, 10.0, 12.0] },
-  swim:       { name:'游泳',     levels:[5.5, 7.5, 10.0] },
-  hike:       { name:'登山徒步', levels:[5.0, 7.0, 8.5] },
-  hiit:       { name:'HIIT间歇', levels:[8.0, 10.0, 12.0] },
-  box:        { name:'拳击操',   levels:[6.0, 8.0, 10.0] },
+  incline:    { name:'爬坡走',  kind:'slope', def:5.0, min:3,  max:8,  step:0.5 },
+  stairs:     { name:'爬楼梯',   levels:[4.5, 6.8, 9.3] },
+  cycle:      { name:'骑行',     levels:[4.0, 6.8, 10.3], watt:1 },
+  spin:       { name:'动感单车', levels:[6.8, 9.0, 11.0], watt:1 },
+  airbike:    { name:'风阻单车', levels:[7.0, 10.0, 14.0], watt:1 },
+  elliptical: { name:'椭圆机',   levels:[5.0, 7.0, 9.0] },
+  rower:      { name:'划船机',   levels:[5.0, 7.5, 11.0], watt:1 },
+  ski:        { name:'滑雪机',   levels:[6.8, 10.5, 14.0] },
+  rope:       { name:'跳绳',     levels:[8.3, 11.0, 12.3] },
+  swim:       { name:'游泳',     levels:[5.8, 8.0, 9.8] },
+  hike:       { name:'登山徒步', levels:[3.8, 6.0, 8.0] },
+  hiit:       { name:'HIIT间歇', levels:[7.0, 9.0, 11.0] },
+  box:        { name:'拳击操',   levels:[5.8, 8.5, 10.8] },
 };
 const LEVEL_NAMES = ['轻松', '中等', '激烈'];
 
-/* 力量强度档：met 为基准 MET 的倍率 */
+/* 力量强度档：只影响节奏与支撑开销，重量差异由机械功项承担 */
 const STRENGTH_LEVELS = [
-  { id:'light', name:'轻量',   k:0.78, desc:'热身 / 12-15次' },
-  { id:'mid',   name:'标准',   k:1.00, desc:'常规增肌组 / 6-12次' },
-  { id:'heavy', name:'大重量', k:1.20, desc:'力量组 / 1-5次' },
+  { id:'light', name:'轻量',   k:0.78, tempoMul:0.85, ohMul:0.90, desc:'热身 / 12-15次' },
+  { id:'mid',   name:'标准',   k:1.00, tempoMul:1.00, ohMul:1.00, desc:'常规增肌组 / 6-12次' },
+  { id:'heavy', name:'大重量', k:1.20, tempoMul:1.25, ohMul:1.15, desc:'力量组 / 1-5次' },
 ];
 
-/* ================= 热量计算 ================= */
-const RUN_TABLE = [
-  { x:5, met:3.5 }, { x:6, met:6.0 }, { x:7, met:7.2 }, { x:8, met:8.3 }, { x:9, met:9.0 },
-  { x:10, met:9.8 }, { x:11, met:10.6 }, { x:12, met:11.5 }, { x:14, met:13.5 }, { x:16, met:15.0 }, { x:20, met:19.0 }
-];
+/* ================= 热量计算 v2 =================
+   模型与标定见 calorie-model.md。要点：
+   1) 总消耗 = 真实静息代谢(Mifflin) × 时长 + (MET-1) × 体重 × 1.05 × 时长
+      不再用 MET×kg×1.05 直接算总消耗——那对大体重/高龄用户高估 20~35%
+   2) 力量训练 = 机械功项 + 做组开销项 + 组间休息项（休息按 2.0 MET，不按动作 MET）
+   3) 走路/爬坡改用实测插值表；跑步表原本就对，未改
+   ============================================== */
+const EXERCISE_KB = {"version":"1.0.0","constants":{"G":9.81,"J_PER_KCAL":4184,"ECC_FACTOR":0.33,"EFFICIENCY":0.22,"MET_INTERSET_REST":2.0,"DEFAULT_TEMPO_SEC":3.0,"MIN_SET_SEC":10,"EPOC_RATIO":{"strength":0.08,"hiit":0.1,"steady":0.03},"KCAL_PER_MET_KG_HOUR":1.05},"intensityLevels":[{"id":"light","name":"轻量","tempoMul":0.85,"overheadMul":0.9,"desc":"热身 / 12-15次"},{"id":"mid","name":"标准","tempoMul":1.0,"overheadMul":1.0,"desc":"常规增肌组 / 6-12次"},{"id":"heavy","name":"大重量","tempoMul":1.25,"overheadMul":1.15,"desc":"力量组 / 1-5次"}],"tiers":{"full":{"met":6.0,"label":"全身爆发"},"compound_lower":{"met":5.0,"label":"下肢复合"},"compound_upper":{"met":4.0,"label":"上肢复合"},"isolation":{"met":3.0,"label":"孤立单关节"},"core":{"met":3.0,"label":"核心"},"iso_hold":{"met":0,"label":"等长/持续类（按时长直接用 met 字段）"}},"loadTypes":{"bar":{"name":"杠铃","mult":1.0,"note":"输入总重（含杆）","barWeight":20},"db":{"name":"哑铃","mult":2.0,"note":"输入单只重量，双手动作×2"},"kb":{"name":"壶铃","mult":1.0,"note":"输入单只重量"},"machine":{"name":"器械","mult":1.0,"note":"输入配重片读数"},"cable":{"name":"绳索","mult":1.0,"note":"输入配重片读数；1:1 滑轮"},"smith":{"name":"史密斯","mult":1.0,"note":"输入片重，配平杆不计","barWeight":0},"bw":{"name":"自重","mult":1.0,"note":"负荷=体重×bw 系数，输入的是额外负重"},"band":{"name":"弹力带","mult":1.0,"note":"等效重量，精度低"},"other":{"name":"其他","mult":1.0}},"modifiers":{"load":{"杠铃":"bar","barbell":"bar","ez杠":"bar","ez":"bar","曲杠":"bar","直杠":"bar","哑铃":"db","dumbbell":"db","单臂哑铃":"db","壶铃":"kb","kettlebell":"kb","器械":"machine","机械":"machine","坐姿器械":"machine","锤式":"machine","hammer strength":"machine","绳索":"cable","滑轮":"cable","龙门":"cable","拉力器":"cable","cable":"cable","史密斯":"smith","smith":"smith","自重":"bw","徒手":"bw","无器械":"bw","弹力带":"band","阻力带":"band"},"position":{"上斜":{"romMul":1.1,"cMul":0.8,"tag":"incline"},"下斜":{"romMul":0.95,"cMul":1.1,"tag":"decline"},"坐姿":{"romMul":1.0,"cMul":1.0,"tag":"seated"},"站姿":{"romMul":1.0,"cMul":0.95,"tag":"standing"},"俯身":{"romMul":1.0,"cMul":0.85,"tag":"bent"},"俯卧":{"romMul":1.0,"cMul":0.9,"tag":"prone"},"仰卧":{"romMul":1.0,"cMul":1.0,"tag":"supine"},"跪姿":{"romMul":0.9,"cMul":0.85,"tag":"kneeling"},"悬垂":{"romMul":1.1,"cMul":1.0,"tag":"hanging"},"单臂":{"unilateral":true,"cMul":0.45,"tag":"unilateral"},"单手":{"unilateral":true,"cMul":0.45,"tag":"unilateral"},"单侧":{"unilateral":true,"cMul":0.45,"tag":"unilateral"},"单腿":{"unilateral":true,"cMul":0.5,"tag":"unilateral"},"交替":{"unilateral":true,"cMul":0.5,"tag":"alternating"},"窄握":{"romMul":1.05,"cMul":0.85,"tag":"close"},"窄距":{"romMul":1.05,"cMul":0.85,"tag":"close"},"宽握":{"romMul":0.9,"cMul":1.0,"tag":"wide"},"宽距":{"romMul":0.9,"cMul":1.0,"tag":"wide"},"反握":{"cMul":0.7,"tag":"reverse"},"正握":{"cMul":1.0,"tag":"pronated"},"中立握":{"cMul":0.95,"tag":"neutral"},"负重":{"cMul":1.0,"tag":"weighted"},"助力":{"assist":true,"tag":"assisted"},"辅助":{"assist":true,"tag":"assisted"},"高位":{"romMul":1.0,"cMul":1.0,"tag":"high"},"低位":{"romMul":1.0,"cMul":1.0,"tag":"low"},"半程":{"romMul":0.55,"cMul":1.25,"tag":"partial"},"慢速":{"tempoMul":1.6,"tag":"slow"},"爆发":{"tempoMul":0.7,"tag":"explosive"},"暂停":{"tempoMul":1.4,"tag":"paused"}}},"cardioModes":{"run":{"name":"跑步","kind":"speed","table":"RUN","def":9.0,"min":4,"max":22,"step":0.5},"walk":{"name":"快走","kind":"speed","table":"WALK","def":5.5,"min":3,"max":9,"step":0.5},"incline":{"name":"爬坡走","kind":"slope","table":"WALK","def":5.0,"min":3,"max":8,"step":0.5},"stairs":{"name":"爬楼梯","levels":[4.5,6.8,9.3],"codes":["17133","17131","17134"]},"cycle":{"name":"骑行","levels":[4.0,6.8,10.3],"watt":true,"codes":["01214","01200","01232"]},"spin":{"name":"动感单车","levels":[6.8,9.0,11.0],"watt":true,"codes":["01218","01270","-"]},"airbike":{"name":"风阻单车","levels":[7.0,10.0,14.0],"watt":true},"elliptical":{"name":"椭圆机","levels":[5.0,7.0,9.0],"codes":["02048","-","02049"]},"rower":{"name":"划船机","levels":[5.0,7.5,11.0],"watt":true,"codes":["02071","02072","02073"]},"ski":{"name":"滑雪机","levels":[6.8,10.5,14.0],"codes":["02080","02082","-"]},"rope":{"name":"跳绳","levels":[8.3,11.0,12.3],"codes":["15552","02068","15550"]},"swim":{"name":"游泳","levels":[5.8,8.0,9.8],"codes":["18240","18290","18230"]},"hike":{"name":"登山徒步","levels":[3.8,6.0,8.0],"codes":["17081","17080","17035"]},"hiit":{"name":"HIIT间歇","levels":[7.0,9.0,11.0],"codes":["02210","-","02214"]},"box":{"name":"拳击操","levels":[5.8,8.5,10.8],"codes":["15110","15115","15118"]},"stepper":{"name":"登山机","levels":[6.0,9.3,11.0],"codes":["-","02065","-"]},"jog_place":{"name":"原地跑","levels":[4.8,7.0,8.5],"codes":["12025","12020","-"]}},"metTables":{"RUN":[[4.5,3.3],[6.5,6.5],[8.2,8.5],[9.0,9.0],[10.0,9.3],[10.8,10.5],[11.3,11.0],[12.1,11.8],[12.9,12.0],[13.8,12.5],[14.5,13.0],[16.1,14.8],[17.7,16.8],[19.3,18.5],[20.9,19.8],[22.5,23.0]],"WALK":[[3.0,2.3],[3.5,2.8],[4.0,3.0],[4.8,3.5],[5.2,3.8],[6.0,4.8],[6.7,5.5],[7.5,7.0],[8.5,8.5],[9.0,9.3]]},"acsm":{"walkVerticalCoef":1.8,"runVerticalCoef":0.9,"legErgCoef":10.8,"legErgRest":7.0,"armErgCoef":18.0,"armErgRest":3.5,"restVO2":3.5},"keytel":{"male":{"c":-55.0969,"hr":0.6309,"kg":0.1988,"age":0.2017},"female":{"c":-20.4022,"hr":0.4472,"kg":-0.1263,"age":0.074},"validHrMin":90,"note":"仅在有氧稳态下可靠；力量训练组间心率漂移会高估"},"movements":[{"id":"bench_press","name":"卧推","tier":"compound_upper","rom":0.4,"aliases":["bench press","卧推","平板卧推","平板推胸","推胸","胸推"],"loads":{"bar":1.0,"db":0.45,"machine":0.85,"smith":0.9,"cable":0.4},"ico":"bench"},{"id":"incline_press","name":"上斜卧推","tier":"compound_upper","rom":0.45,"aliases":["上斜推胸","斜上卧推","incline press","上斜哑铃卧推"],"loads":{"bar":0.8,"db":0.36,"machine":0.7,"smith":0.72},"ico":"incline"},{"id":"decline_press","name":"下斜卧推","tier":"compound_upper","rom":0.38,"aliases":["下斜推胸","decline press"],"loads":{"bar":0.95,"db":0.42,"machine":0.8,"smith":0.85},"ico":"decline"},{"id":"chest_fly","name":"飞鸟","tier":"isolation","rom":0.55,"aliases":["fly","pec deck","夹胸","夹胸机","扩胸","蝴蝶机","飞鸟"],"loads":{"db":0.22,"machine":0.55,"cable":0.2},"ico":"fly"},{"id":"pullover","name":"直臂上拉","tier":"isolation","rom":0.55,"aliases":["拉举","pullover","直臂屈伸"],"loads":{"db":0.25,"cable":0.35,"machine":0.5},"ico":"fly"},{"id":"pushup","name":"俯卧撑","tier":"compound_upper","rom":0.35,"aliases":["push up","撑地","俯地挺身"],"loads":{"bw":0},"bw":0.64,"ico":"body"},{"id":"dip","name":"双杠臂屈伸","tier":"compound_upper","rom":0.45,"aliases":["臂屈伸","dips","双杠"],"loads":{"bw":0},"bw":0.95,"ico":"dip"},{"id":"pullup","name":"引体向上","tier":"compound_upper","rom":0.55,"aliases":["引体","pull up","chin up","单杠","反手引体"],"loads":{"bw":0},"bw":1.0,"ico":"pullup"},{"id":"lat_pulldown","name":"高位下拉","tier":"compound_upper","rom":0.55,"aliases":["lat pulldown","下拉","背阔下拉","背阔肌下拉","颈前下拉"],"loads":{"machine":0.8,"cable":0.75},"ico":"pulldown"},{"id":"seated_row","name":"坐姿划船","tier":"compound_upper","rom":0.5,"aliases":["seated row","低位划船","低拉","划船","划船机械","坐姿拉划船","坐姿拉背"],"loads":{"machine":0.85,"cable":0.8},"ico":"row"},{"id":"barbell_row","name":"杠铃划船","tier":"compound_upper","rom":0.45,"aliases":["bent over row","俯身划船","划船","单臂划船","哑铃划船","屈体划船","杠铃俯身划船"],"loads":{"bar":0.75,"db":0.4,"smith":0.7,"machine":0.6,"cable":0.55},"ico":"row"},{"id":"tbar_row","name":"T杠划船","tier":"compound_upper","rom":0.45,"aliases":["t bar row","t杠"],"loads":{"bar":0.7,"machine":0.75},"ico":"row"},{"id":"chest_supported_row","name":"胸部支撑划船","tier":"compound_upper","rom":0.45,"aliases":["俯卧划船","支撑划船"],"loads":{"machine":0.6,"db":0.3},"ico":"machine"},{"id":"deadlift","name":"硬拉","tier":"compound_lower","rom":0.55,"aliases":["传统硬拉","deadlift","屈腿硬拉"],"loads":{"bar":1.75,"db":0.7},"ico":"hinge","bw":0.45},{"id":"romanian_deadlift","name":"罗马尼亚硬拉","tier":"compound_lower","rom":0.45,"aliases":["直腿硬拉","rdl","罗马硬拉","屈髋硬拉"],"loads":{"bar":1.2,"db":0.5},"ico":"hinge","bw":0.3},{"id":"sumo_deadlift","name":"相扑硬拉","tier":"compound_lower","rom":0.45,"aliases":["宽距硬拉","sumo deadlift"],"loads":{"bar":1.7},"ico":"hinge","bw":0.4},{"id":"straight_arm_pulldown","name":"直臂下压","tier":"isolation","rom":0.45,"aliases":["直臂下拉","straight arm pulldown"],"loads":{"cable":0.3},"ico":"cable"},{"id":"back_extension","name":"山羊挺身","tier":"isolation","rom":0.4,"aliases":["背屈伸","罗马椅","hyperextension","体前屈"],"loads":{"bw":0},"bw":0.45,"ico":"backext"},{"id":"shrug","name":"耸肩","tier":"isolation","rom":0.15,"aliases":["斜方肌耸肩","shrug"],"loads":{"bar":1.2,"db":0.45,"machine":1.0,"smith":1.2},"ico":"shrug"},{"id":"overhead_press","name":"肩推","tier":"compound_upper","rom":0.5,"aliases":["ohp","shoulder press","坐姿推举","推举","推肩","站姿推举","肩上推","肩上推举","过头推举"],"loads":{"bar":0.55,"db":0.25,"machine":0.45,"smith":0.5},"ico":"press"},{"id":"arnold_press","name":"阿诺德推举","tier":"compound_upper","rom":0.52,"aliases":["arnold press"],"loads":{"db":0.22},"ico":"press"},{"id":"lateral_raise","name":"侧平举","tier":"isolation","rom":0.5,"aliases":["侧举","lateral raise","三角肌中束"],"loads":{"db":0.12,"cable":0.1,"machine":0.25},"ico":"lateral"},{"id":"front_raise","name":"前平举","tier":"isolation","rom":0.5,"aliases":["前举","front raise"],"loads":{"db":0.12,"cable":0.1,"bar":0.2},"ico":"frontraise"},{"id":"rear_delt_fly","name":"反向飞鸟","tier":"isolation","rom":0.45,"aliases":["俯身飞鸟","后束飞鸟","reverse fly","反式飞鸟","后肩飞鸟"],"loads":{"db":0.1,"machine":0.3,"cable":0.12},"ico":"reardelt"},{"id":"face_pull","name":"面拉","tier":"isolation","rom":0.4,"aliases":["face pull","绳索面拉"],"loads":{"cable":0.25},"ico":"cable"},{"id":"upright_row","name":"直立划船","tier":"compound_upper","rom":0.4,"aliases":["立式划船","upright row"],"loads":{"bar":0.4,"db":0.18,"cable":0.35,"smith":0.38},"ico":"uprightrow"},{"id":"biceps_curl","name":"弯举","tier":"isolation","rom":0.4,"aliases":["curl","二头","二头弯举","弯举","肱二头肌弯举","臂弯举"],"loads":{"bar":0.35,"db":0.15,"cable":0.3,"machine":0.3},"ico":"curl"},{"id":"hammer_curl","name":"锤式弯举","tier":"isolation","rom":0.4,"aliases":["中立握弯举","hammer curl","锤弯"],"loads":{"db":0.16,"cable":0.28},"ico":"dumbbell"},{"id":"reverse_curl","name":"反握弯举","tier":"isolation","rom":0.38,"aliases":["正握弯举","reverse curl"],"loads":{"bar":0.25,"db":0.11,"cable":0.22},"ico":"curl"},{"id":"preacher_curl","name":"牧师椅弯举","tier":"isolation","rom":0.35,"aliases":["斜板弯举","preacher curl","传教士弯举"],"loads":{"bar":0.28,"db":0.13,"machine":0.28},"ico":"curl"},{"id":"concentration_curl","name":"集中弯举","tier":"isolation","rom":0.35,"aliases":["concentration curl"],"loads":{"db":0.12},"ico":"curl"},{"id":"wrist_curl","name":"腕弯举","tier":"isolation","rom":0.12,"aliases":["手腕弯举","前臂弯举"],"loads":{"db":0.18,"bar":0.25},"ico":"dumbbell"},{"id":"triceps_pushdown","name":"绳索下压","tier":"isolation","rom":0.35,"aliases":["pushdown","三头","三头下压","下压","臂屈伸下压","臂屈伸下拉"],"loads":{"cable":0.35,"machine":0.4},"ico":"triceps"},{"id":"overhead_extension","name":"过顶臂屈伸","tier":"isolation","rom":0.45,"aliases":["颈后臂屈伸","过头臂屈伸","overhead extension"],"loads":{"cable":0.28,"db":0.2,"bar":0.25},"ico":"triceps"},{"id":"skullcrusher","name":"仰卧臂屈伸","tier":"isolation","rom":0.4,"aliases":["碎颅式","skullcrusher","法式推举"],"loads":{"bar":0.3,"db":0.14,"cable":0.28},"ico":"barbell"},{"id":"kickback","name":"俯身臂屈伸","tier":"isolation","rom":0.3,"aliases":["三头后踢","kickback"],"loads":{"db":0.08,"cable":0.1},"ico":"triceps"},{"id":"close_grip_bench","name":"窄距卧推","tier":"compound_upper","rom":0.38,"aliases":["窄握卧推","close grip bench"],"loads":{"bar":0.85,"smith":0.8},"ico":"bench"},{"id":"squat","name":"深蹲","tier":"compound_lower","rom":0.5,"aliases":["squat","后蹲","杠铃深蹲","背蹲","蹲"],"loads":{"bar":1.5,"db":0.45,"smith":1.3,"machine":1.4},"ico":"squat","bw":0.85},{"id":"front_squat","name":"前蹲","tier":"compound_lower","rom":0.5,"aliases":["前抱深蹲","front squat"],"loads":{"bar":1.1,"db":0.4},"ico":"squat","bw":0.85},{"id":"hack_squat","name":"哈克深蹲","tier":"compound_lower","rom":0.45,"aliases":["哈克机","hack squat","v蹲","器械深蹲"],"loads":{"machine":1.6},"lever":0.707,"ico":"machine","bw":0.85},{"id":"leg_press","name":"腿举","tier":"compound_lower","rom":0.45,"aliases":["leg press","倒蹬","腿举机","腿推","蹬腿"],"loads":{"machine":2.2},"lever":0.707,"ico":"legpress"},{"id":"goblet_squat","name":"高脚杯深蹲","tier":"compound_lower","rom":0.5,"aliases":["goblet squat","哥布林深蹲"],"loads":{"db":0.4,"kb":0.4},"ico":"kettlebell","bw":0.85},{"id":"lunge","name":"箭步蹲","tier":"compound_lower","rom":0.45,"aliases":["弓步蹲","lunge","分腿蹲","行走箭步蹲"],"loads":{"db":0.3,"bar":0.6,"smith":0.55},"ico":"lunge","bw":0.85},{"id":"bulgarian_split_squat","name":"保加利亚分腿蹲","tier":"compound_lower","rom":0.45,"aliases":["后脚抬高分腿蹲","bulgarian split squat","保加利亚蹲"],"loads":{"db":0.25,"bar":0.45},"ico":"lunge","bw":0.85},{"id":"step_up","name":"登阶","tier":"compound_lower","rom":0.4,"aliases":["上台阶","step up","箱上登阶"],"loads":{"db":0.25,"bw":0},"bw":1.0,"ico":"boxjump"},{"id":"leg_extension","name":"腿屈伸","tier":"isolation","rom":0.4,"aliases":["leg extension","股四头伸展","腿伸","腿伸展"],"loads":{"machine":0.7},"lever":0.8,"ico":"legext"},{"id":"leg_curl","name":"腿弯举","tier":"isolation","rom":0.35,"aliases":["leg curl","俯卧腿弯举","坐姿腿弯举","腘绳弯举","腿屈"],"loads":{"machine":0.55},"lever":0.8,"ico":"legcurl"},{"id":"hip_thrust","name":"臀推","tier":"compound_lower","rom":0.3,"aliases":["hip thrust","杠铃臀推","臀推"],"loads":{"bar":1.3,"machine":1.4},"ico":"hipthrust","bw":0.55},{"id":"glute_bridge","name":"臀桥","tier":"isolation","rom":0.25,"aliases":["glute bridge","挺髋"],"loads":{"bar":0.9,"bw":0},"bw":0.45,"ico":"hipthrust"},{"id":"calf_raise","name":"提踵","tier":"isolation","rom":0.15,"aliases":["calf raise","举踵","小腿","小腿提踵","提踵"],"loads":{"machine":1.5,"bar":1.2,"db":0.5,"smith":1.4},"bw":1.0,"ico":"calf"},{"id":"hip_abduction","name":"髋外展","tier":"isolation","rom":0.3,"aliases":["外展机","abduction","臀外展"],"loads":{"machine":0.6},"ico":"abduct"},{"id":"hip_adduction","name":"髋内收","tier":"isolation","rom":0.3,"aliases":["内收机","adduction","大腿内收"],"loads":{"machine":0.55},"ico":"abduct"},{"id":"good_morning","name":"早安式","tier":"compound_lower","rom":0.4,"aliases":["good morning","屈体前屈"],"loads":{"bar":0.6},"ico":"hinge","bw":0.35},{"id":"nordic_curl","name":"北欧挺","tier":"isolation","rom":0.45,"aliases":["北欧腿弯举","nordic curl"],"loads":{"bw":0},"bw":0.55,"ico":"legcurl"},{"id":"crunch","name":"卷腹","tier":"core","rom":0.25,"aliases":["crunch","腹肌卷腹","仰卧卷腹"],"loads":{"bw":0,"machine":0.4},"bw":0.3,"ico":"crunch"},{"id":"situp","name":"仰卧起坐","tier":"core","rom":0.4,"aliases":["sit up","起坐"],"loads":{"bw":0},"bw":0.4,"ico":"crunch"},{"id":"cable_crunch","name":"绳索卷腹","tier":"core","rom":0.35,"aliases":["cable crunch","卷腹","跪姿卷腹"],"loads":{"cable":0.5},"ico":"cable"},{"id":"leg_raise","name":"举腿","tier":"core","rom":0.45,"aliases":["抬腿","leg raise","仰卧举腿","屈膝举腿"],"loads":{"bw":0},"bw":0.3,"ico":"legraise"},{"id":"hanging_leg_raise","name":"悬垂举腿","tier":"core","rom":0.55,"aliases":["悬垂抬腿","hanging leg raise"],"loads":{"bw":0},"bw":0.35,"ico":"legraise"},{"id":"russian_twist","name":"俄罗斯转体","tier":"core","rom":0.3,"aliases":["转体","russian twist","坐姿转体"],"loads":{"bw":0,"db":0.1},"bw":0.15,"ico":"twist"},{"id":"ab_wheel","name":"腹轮","tier":"core","rom":0.6,"aliases":["健腹轮","ab wheel","滚轮"],"loads":{"bw":0},"bw":0.5,"ico":"abwheel"},{"id":"plank","name":"平板支撑","tier":"iso_hold","rom":0,"aliases":["plank","撑体","肘撑"],"loads":{"bw":0},"hold":1,"met":3.5,"ico":"plank"},{"id":"side_plank","name":"侧平板支撑","tier":"iso_hold","rom":0,"aliases":["side plank","侧平板","侧撑","侧桥"],"loads":{"bw":0},"hold":1,"met":3.0,"ico":"plank"},{"id":"dead_hang","name":"悬垂","tier":"iso_hold","rom":0,"aliases":["死亡悬垂","dead hang","吊杠"],"loads":{"bw":0},"hold":1,"met":2.5,"ico":"pullup"},{"id":"pallof_press","name":"帕洛夫推","tier":"core","rom":0.35,"aliases":["抗旋推","pallof press"],"loads":{"cable":0.25},"ico":"cable"},{"id":"kettlebell_swing","name":"壶铃摆荡","tier":"full","rom":0.6,"aliases":["kettlebell swing","swing","壶铃甩摆","摆壶铃","摆荡","甩摆"],"loads":{"kb":0.35,"db":0.35},"met":9.8,"ico":"swing"},{"id":"power_clean","name":"高翻","tier":"full","rom":0.9,"aliases":["翻站","power clean","爆发翻"],"loads":{"bar":0.9},"ico":"clean","bw":0.3},{"id":"snatch","name":"抓举","tier":"full","rom":1.2,"aliases":["snatch","高抓"],"loads":{"bar":0.6},"ico":"clean","bw":0.3},{"id":"thruster","name":"推举深蹲","tier":"full","rom":0.9,"aliases":["thruster","借力推","推举深蹲"],"loads":{"bar":0.6,"db":0.25},"ico":"press","bw":0.85},{"id":"burpee","name":"波比跳","tier":"full","rom":0.5,"aliases":["burpee","立卧撑跳"],"loads":{"bw":0},"bw":1.0,"met":8.0,"ico":"burpee"},{"id":"box_jump","name":"跳箱","tier":"full","rom":0.45,"aliases":["箱跳","box jump"],"loads":{"bw":0},"bw":1.0,"ico":"boxjump"},{"id":"jump_squat","name":"深蹲跳","tier":"full","rom":0.4,"aliases":["跳蹲","jump squat"],"loads":{"bw":0},"bw":1.0,"ico":"squat"},{"id":"medball_slam","name":"药球砸地","tier":"full","rom":1.0,"aliases":["med ball slam","slam","砸地","砸球"],"loads":{"other":0.15},"ico":"slam"},{"id":"battle_rope","name":"战绳","tier":"iso_hold","rom":0,"aliases":["绳索波浪","battle rope","甩大绳"],"loads":{"bw":0},"hold":1,"met":8.0,"ico":"rope2"},{"id":"sled_push","name":"雪橇推","tier":"iso_hold","rom":0,"aliases":["推雪橇","sled push","推车"],"loads":{"bw":0},"hold":1,"met":9.0,"ico":"sled"},{"id":"farmer_carry","name":"农夫行走","tier":"iso_hold","rom":0,"aliases":["农夫走","farmer carry","负重行走"],"loads":{"bw":0},"hold":1,"met":6.0,"ico":"carry"},{"id":"mountain_climber","name":"登山跑","tier":"iso_hold","rom":0,"aliases":["登山者","mountain climber"],"loads":{"bw":0},"hold":1,"met":8.0,"ico":"burpee"},{"id":"assisted_pullup","name":"助力引体","tier":"compound_upper","rom":0.55,"aliases":["assisted pullup","助力引体机","引体","辅助引体"],"loads":{"machine":0},"bw":1.0,"assist":1,"ico":"machine"},{"id":"assisted_dip","name":"助力臂屈伸","tier":"compound_upper","rom":0.45,"aliases":["助力双杠","双杠","臂屈伸","辅助臂屈伸"],"loads":{"machine":0},"bw":0.95,"assist":1,"ico":"machine"},{"id":"glute_kickback","name":"后踢腿","tier":"isolation","rom":0.35,"aliases":["臀后踢","kickback腿","绳索后踢腿","跪姿后踢"],"loads":{"cable":0.25,"machine":0.35},"ico":"abduct"},{"id":"clamshell","name":"蚌式","tier":"isolation","rom":0.25,"aliases":["侧卧蚌式","clamshell","贝壳式"],"loads":{"bw":0,"band":0.05},"bw":0.12,"ico":"abduct"},{"id":"dead_bug","name":"死虫","tier":"core","rom":0.35,"aliases":["dead bug","死虫式"],"loads":{"bw":0},"bw":0.2,"ico":"legraise"},{"id":"side_bend","name":"体侧屈","tier":"core","rom":0.35,"aliases":["侧屈","体侧弯","side bend"],"loads":{"db":0.2,"cable":0.25},"ico":"twist"},{"id":"turkish_getup","name":"土耳其起立","tier":"full","rom":1.2,"aliases":["turkish get up","tgu","起立"],"loads":{"kb":0.2,"db":0.2},"bw":0.6,"ico":"kettlebell"}]};
+
 function interpMet(table, x){
-  if (x <= table[0].x) return table[0].met;
+  if (x <= table[0][0]) return table[0][1];
   for (let i = 1; i < table.length; i++){
-    if (x <= table[i].x){
-      const a = table[i - 1], b = table[i];
-      return a.met + (b.met - a.met) * (x - a.x) / (b.x - a.x);
+    if (x <= table[i][0]){
+      const a = table[i-1], b = table[i];
+      return a[1] + (b[1]-a[1]) * (x-a[0]) / (b[0]-a[0]);
     }
   }
-  return table[table.length - 1].met;
+  return table[table.length-1][1];
 }
-const walkMet = v => 1.6 + 0.48 * v;
-const runMet = v => interpMet(RUN_TABLE, v);
-const inclineMet = (slope, v) => walkMet(v || 5.6) + slope * 0.7;
-/* 总消耗；净消耗扣掉同时段静息代谢（约 1 MET） */
-function calcKcal(met, kg, minutes, net){
-  if (!met || !kg || !minutes) return 0;
-  return Math.max(0, (net ? met - 1 : met)) * kg * (minutes / 60) * 1.05;
-}
+const walkMet = v => interpMet(EXERCISE_KB.metTables.WALK, v);
+const runMet  = v => interpMet(EXERCISE_KB.metTables.RUN, v);
+/* 水平分量用实测表，垂直分量用 ACSM 的 1.8×(m/min)×坡度 —— 原来的 slope*0.7 不随速度变化 */
+const inclineMet = (slope, v) => {
+  const vv = v || 5.0;
+  return interpMet(EXERCISE_KB.metTables.WALK, vv)
+       + 1.8 * (vv * 1000 / 60) * ((slope || 0) / 100) / 3.5;
+};
+function wattMet(watts, kg){ return (10.8 * watts / (kg || 70) + 7) / 3.5; }
+
 /* Mifflin-St Jeor 基础代谢 */
 function bmrOf(p){
   const w = p.weight || 70, h = p.height || 175, a = p.age || 25;
   return 10 * w + 6.25 * h - 5 * a + (p.gender === 'female' ? -161 : 5);
 }
+const rmrMin = p => bmrOf(p) / 1440;
+const netKcalOf   = (met, kg, min) => Math.max(0, met - 1) * (kg || 70) * 0.0175 * min;
+const grossKcalOf = (met, p, min)  => netKcalOf(met, p.weight, min) + rmrMin(p) * min;
+/* 旧版公式，只保留给历史数据迁移用 */
+function calcKcal(met, kg, minutes, net){
+  if (!met || !kg || !minutes) return 0;
+  return Math.max(0, (net ? met - 1 : met)) * kg * (minutes / 60) * 1.05;
+}
+/* Keytel 2005：由平均心率推算运动期间总消耗（仅有氧稳态可靠） */
+function keytelKcalMin(hr, p){
+  if (!hr || hr < 90) return null;
+  const k = EXERCISE_KB.keytel[p.gender === 'female' ? 'female' : 'male'];
+  const kj = k.c + k.hr * hr + k.kg * (p.weight || 70) + k.age * (p.age || 25);
+  return kj > 0 ? kj / 4.184 : null;
+}
+
+/* ---------- 动作名称 -> 物理参数 ---------- */
+function matchMovement(rawName){
+  const KB = EXERCISE_KB;
+  const name = String(rawName || '').toLowerCase().replace(/[\s（）()·\-_/]+/g, '');
+  if (!name) return null;
+  let loadType = null, rest = name;
+  for (const tok in KB.modifiers.load)
+    if (rest.includes(tok)){ loadType = KB.modifiers.load[tok]; rest = rest.split(tok).join(''); }
+  const tags = [], hitTokens = [];
+  for (const tok in KB.modifiers.position){
+    if (!rest.includes(tok)) continue;
+    const cfg = KB.modifiers.position[tok];
+    if (tags.indexOf(cfg.tag) < 0) tags.push(cfg.tag);
+    hitTokens.push(tok);
+    rest = rest.split(tok).join('');
+  }
+  let best = null, bestScore = 0;
+  for (const mv of KB.movements){
+    const supportsLoad = loadType && (mv.loads[loadType] !== undefined || (loadType === 'bw' && mv.bw));
+    for (const k of [mv.name].concat(mv.aliases || [])){
+      const kk = k.toLowerCase().replace(/[\s（）()·\-_/]+/g, '');
+      const hitRest = kk && rest.includes(kk), hitFull = kk && name.includes(kk);
+      if (!hitRest && !hitFull) continue;
+      let sc = kk.length * 10;
+      if (!hitRest) sc -= 12;
+      if (rest === kk || name === kk) sc += 60;
+      if (supportsLoad) sc += 35;
+      if (rest.endsWith(kk) || name.endsWith(kk)) sc += 8;
+      if (sc > bestScore){ bestScore = sc; best = mv; }
+    }
+  }
+  if (!best) return null;
+  const own = [best.name].concat(best.aliases || []).join('').toLowerCase();
+  let romMul = 1, cMul = 1, tempoMul = 1, unilateral = false, assist = !!best.assist;
+  const done = [];
+  for (const tok of hitTokens){
+    const cfg = KB.modifiers.position[tok];
+    if (!cfg || own.includes(tok) || done.indexOf(cfg.tag) >= 0) continue;
+    done.push(cfg.tag);
+    romMul *= cfg.romMul || 1; cMul *= cfg.cMul || 1; tempoMul *= cfg.tempoMul || 1;
+    if (cfg.unilateral) unilateral = true;
+    if (cfg.assist) assist = true;
+  }
+  let lt = (loadType && best.loads[loadType] !== undefined) ? loadType : null;
+  if (!lt && loadType === 'bw' && best.bw) lt = 'bw';
+  if (!lt) lt = best.defaultLoad || Object.keys(best.loads)[0];
+  let c = best.loads[lt];
+  if (c === undefined) c = Object.values(best.loads)[0] || 0;
+  return { mv:best, id:best.id, loadType:lt, rom:+(best.rom * romMul).toFixed(3),
+           tier:best.tier, bw:best.bw || 0, lever:best.lever || 1, met:best.met || 0,
+           hold:!!best.hold, assist:assist, unilateral:unilateral, tempoMul:tempoMul,
+           c:+(c * cMul).toFixed(3), tags:tags, score:bestScore, confident:bestScore >= 60 };
+}
+
+/* 动作对象 -> 物理参数（带缓存）。自定义动作保存时已固化 phys，直接取用 */
+const _physCache = {};
+function physOf(a){
+  if (!a) return { rom:0.40, tier:'isolation', bw:0, lever:1, loadType:'bar', hold:false };
+  if (a.phys) return a.phys;
+  if (_physCache[a.id]) return _physCache[a.id];
+  const m = matchMovement(a.name);
+  const ph = m ? { rom:m.rom, tier:m.tier, bw:m.bw, lever:m.lever, loadType:a.load || m.loadType,
+                   hold:m.hold, met:m.met, assist:m.assist, unilateral:m.unilateral }
+               : { rom:0.40, tier:(a.compound ? 'compound_upper' : 'isolation'),
+                   bw:(a.c ? 0 : 0.5), lever:1, loadType:a.load || 'bar', hold:false, fallback:1 };
+  _physCache[a.id] = ph;
+  return ph;
+}
+
+/* 把识别结果固化进自定义动作，之后计算直接读 phys，不再每次重算 */
+function resolveCustomPhys(d){
+  const KB = EXERCISE_KB;
+  let m = null;
+  if (d.refId){
+    const mv = KB.movements.find(x => x.id === d.refId);
+    if (mv){
+      const lt = mv.defaultLoad || Object.keys(mv.loads)[0];
+      m = { mv:mv, loadType:lt, rom:mv.rom, tier:mv.tier, bw:mv.bw || 0,
+            lever:mv.lever || 1, met:mv.met || 0, hold:!!mv.hold, assist:!!mv.assist,
+            unilateral:false, c:mv.loads[lt] || 0 };
+    }
+  }
+  if (!m) m = matchMovement(d.name || '');
+  if (!m) return null;
+  return { phys:{ rom:m.rom, tier:m.tier, bw:m.bw, lever:m.lever, loadType:m.loadType,
+                  hold:m.hold, met:m.met, assist:m.assist, unilateral:m.unilateral },
+           load:m.loadType, c:m.c, refId:m.mv.id, compound:/compound|full/.test(m.tier) ? 1 : 0 };
+}
+/* ---------- 力量：机械功 + 做组开销 + 组间休息 ---------- */
+function strengthEst(a, f, p){
+  const C = EXERCISE_KB.constants, kg = p.weight || 70;
+  const ph = physOf(a);
+  const lvl = STRENGTH_LEVELS.find(l => l.id === f.intensity) || STRENGTH_LEVELS[1];
+  const sets = (f.setList || []).length || 1;
+  const restSec = num(f.restSec, 90), workSec = num(f.workSec, 40);
+
+  if (ph.hold){
+    const min = sets * workSec / 60;
+    const net = netKcalOf(ph.met || 3.5, kg, min);
+    return { net:net, gross:net + rmrMin(p) * min, min:min,
+             met:min > 0 ? (net + rmrMin(p)*min) / (kg*0.0175*min) : 0, mech:0 };
+  }
+  const lt = EXERCISE_KB.loadTypes[ph.loadType] || EXERCISE_KB.loadTypes.other;
+  const mult = ph.unilateral ? 1 : (lt.mult || 1);
+  let W = 0;
+  for (const s of (f.setList || [])){
+    const reps = Math.max(0, num(s.r, 0));
+    const m_eff = ph.assist ? Math.max(0, (ph.bw || 1) * kg - num(s.w, 0))
+                            : num(s.w, 0) * mult + (ph.bw || 0) * kg;
+    W += m_eff * C.G * ph.rom * (ph.lever || 1) * reps * (1 + C.ECC_FACTOR);
+  }
+  const tWork = sets * workSec / 60, tRest = sets * restSec / 60, tAll = tWork + tRest;
+  const tierMet = (EXERCISE_KB.tiers[ph.tier] || EXERCISE_KB.tiers.isolation).met * lvl.ohMul;
+  const net = W / C.EFFICIENCY / C.J_PER_KCAL
+            + netKcalOf(tierMet, kg, tWork)
+            + netKcalOf(C.MET_INTERSET_REST, kg, tRest);
+  const gross = net + rmrMin(p) * tAll;
+  return { net:net, gross:gross, min:tAll, mech:W / C.EFFICIENCY / C.J_PER_KCAL,
+           met:tAll > 0 ? gross / (kg * 0.0175 * tAll) : 0 };
+}
+
+/* ---------- 有氧 ---------- */
+function cardioEst(f, p){
+  const min = num(f.durMin, 0), kg = p.weight || 70;
+  const m = CARDIO_MODES[f.mode] || {};
+  let met = 4.5, note = '';
+  let speed = num(f.speed, 0);
+  if (m.kind === 'speed' && num(f.distKm, 0) > 0 && min > 0)
+    speed = num(f.distKm, 0) / (min / 60);        // 距离+时长反推配速，比手拨更可靠
+  if (m.kind === 'speed'){
+    met = f.mode === 'run' ? runMet(speed) : walkMet(speed);
+    note = speed.toFixed(1) + ' km/h' + (num(f.distKm,0) > 0 ? '（按距离）' : '');
+  } else if (m.kind === 'slope'){
+    met = inclineMet(num(f.slope, 0), speed);
+    note = `坡度 ${num(f.slope,0)}% · ${speed} km/h`;
+  } else if (m.watt && num(f.watts, 0) > 0){
+    met = wattMet(num(f.watts, 0), kg);
+    note = num(f.watts, 0) + ' W';
+  } else {
+    met = (m.levels || [5, 6, 7])[num(f.level, 1)];
+    note = LEVEL_NAMES[num(f.level, 1)];
+  }
+  const hrRate = keytelKcalMin(num(f.avgHr, 0), p);
+  if (hrRate != null){
+    const gross = hrRate * min, rest = rmrMin(p) * min;
+    return { net:Math.max(0, gross - rest), gross:gross, min:min,
+             met:min > 0 ? gross / (kg * 0.0175 * min) : 0,
+             note:`心率 ${num(f.avgHr,0)} bpm · ${note}`, src:'hr' };
+  }
+  return { net:netKcalOf(met, kg, min), gross:grossKcalOf(met, p, min), min:min,
+           met:met, note:note, src:'met' };
+}
+
+/* 补记往期训练时，取体重日志里离那天最近的一条 */
+function profileAt(dateStr){
+  const p = Store.profile();
+  const ws = (Store.weights() || []).filter(w => w && w.weight && w.date);
+  if (!dateStr || !ws.length) return p;
+  let best = null, bd = Infinity;
+  for (const w of ws){
+    const d = Math.abs(new Date(w.date) - new Date(dateStr));
+    if (d < bd){ bd = d; best = w; }
+  }
+  return best && best.weight ? { ...p, weight: best.weight } : p;
+}
+const round5 = v => Math.round(v / 5) * 5;
 </script>
 <script>
 "use strict";
@@ -850,7 +1038,7 @@ const DEFAULTS = {
   custom:    [],
   weights:   [],
   templates: [],
-  settings:  { defaultLevel:'mid', defaultRest:90, defaultWork:40, netKcal:false, theme:'auto', sound:true, autoRest:true },
+  settings:  { defaultLevel:'mid', defaultRest:90, defaultWork:40, netKcal:true, theme:'auto', sound:true, autoRest:true },
   meta:      { schema:SCHEMA, lastBackup:null },
 };
 const cache = {};
@@ -950,16 +1138,30 @@ function migrate(){
         delete it.sets; delete it.reps; delete it.repsList; delete it.weight;
         touched++;
       }
+      // 历史记录沿用保存时的口径，不用新模型重算，避免进步曲线整体跳一次
       if (it.kcalNet == null) it.kcalNet = Math.round(calcKcal(num(it.met, 0), Store.profile().weight || 70, num(it.durMin, 0), true));
+      if (it.mv == null) it.mv = 1;
       return it;
     });
   });
   Store.set('records', recs);
   const custom = Store.custom().map(c => {
     if (!c.ico || /[^a-z0-9_-]/i.test(c.ico)) c.ico = 'star';
+    // 旧版自定义动作一律写死 met=4.2，这里用知识库重新识别一次补上真实参数
+    if (c.type !== 'cardio' && !c.phys){
+      const R = resolveCustomPhys(c);
+      if (R){
+        c.phys = R.phys; c.load = R.load; c.compound = R.compound; c.refId = R.refId;
+        if (!num(c.c, 0)) c.c = R.c;
+      } else {
+        c.phys = { rom:0.40, tier:'compound_upper', bw:0, lever:1, loadType:c.load || 'bar',
+                   hold:false, fallback:1 };
+      }
+      delete c.met;
+      touched++;
+    }
     if (c.c == null) c.c = 0;
     if (!c.load) c.load = 'bar';
-    if (!c.met) c.met = 4.2;
     return c;
   });
   Store.set('custom', custom);
@@ -972,7 +1174,7 @@ function migrate(){
 let _actCache = null;
 function allActions(){
   if (_actCache) return _actCache;
-  _actCache = [...BUILTIN, ...Store.custom().map(c => ({ type:'weight', compound:0, load:'bar', c:0, met:4.2, ...c, custom:1 }))];
+  _actCache = [...BUILTIN, ...Store.custom().map(c => ({ type:'weight', compound:0, load:'bar', c:0, ...c, custom:1 }))];
   return _actCache;
 }
 function invalidateActions(){ _actCache = null; }
@@ -1010,7 +1212,7 @@ const state = {
   date: todayStr(), dateTouched: false,
   _met: 0, _durMin: 0, _kcal: 0, _kcalNet: 0,
   histDays: 7, histPage: 1, chartMode: 'kcal', trendAid: '',
-  customDraft: { cat:'chest', ico:'star', type:'weight', load:'bar', c:0 },
+  customDraft: { cat:'chest', ico:'star', type:'weight' },
   editingCustom: null,
 };
 const S = () => Store.settings();
@@ -1161,7 +1363,7 @@ function applyDateUI(){
 function updateTopKcal(){
   const net = useNet();
   const items = Store.records()[todayStr()] || [];
-  $('#todayKcal').textContent = Math.round(dayKcal(items, net));
+  $('#todayKcal').textContent = round5(dayKcal(items, net));
   $('#kcalLabel').textContent = net ? '今日净消耗' : '今日消耗';
   const vol = dayVol(items);
   $('#todayLabel').textContent = items.length
@@ -1258,8 +1460,8 @@ function strengthRefHTML(){
   const a = state.editing, p = Store.profile();
   const cur = state.form ? state.form.intensity : 'mid';
   if (!a) return '';
-  if (a.custom && !a.c)
-    return `<div class="ref-box" id="strRefBox">自定义动作没有参考数据，按感觉选：<b>轻量</b>=轻松做完，<b>标准</b>=有点吃力，<b>大重量</b>=勉强完成。想要参考重量可以在「我的 → 自定义动作」里填系数。</div>`;
+  if (a.custom && !num(a.c, 0) && !physOf(a).bw)
+    return `<div class="ref-box" id="strRefBox">这个动作没认出参考重量，按感觉选：<b>轻量</b>=轻松做完，<b>标准</b>=有点吃力，<b>大重量</b>=勉强完成。想要参考区间，可以到「我的 → 自定义动作」里指定一个参照动作或填标准重量。</div>`;
   if (!num(a.c, 0))
     return `<div class="ref-box" id="strRefBox"><b>${esc(a.name)}</b> 是自重动作，负荷就是你的体重（约 ${p.weight || 70}kg）。强度靠次数体现：<b>轻量</b>=轻松15次以上，<b>标准</b>=8-12次接近力竭，<b>大重量</b>=1-6次（可挂负重）。重量栏可填加负重量，不加就留 0。</div>`;
   const R = refWeights(a, p), g = p.gender === 'female' ? '女' : '男';
@@ -1329,6 +1531,8 @@ function openDrawer(action, prefill, editRef){
       speed: prefill?.speed ?? last?.it.speed ?? (m.def || 5.5),
       slope: prefill?.slope ?? last?.it.slope ?? 5,
       distKm: prefill?.distKm ?? 0,
+      avgHr: prefill?.avgHr ?? last?.it.avgHr ?? 0,
+      watts: prefill?.watts ?? last?.it.watts ?? 0,
       note: prefill?.note || '',
     };
     if (m.kind === 'speed' && !state.form.distKm) state.form.distKm = +(state.form.speed * state.form.durMin / 60).toFixed(2);
@@ -1440,7 +1644,7 @@ function cardioFormHTML(){
       <div class="ref-box">参考 MET：${(m.levels || []).map((v, i) => LEVEL_NAMES[i] + ' ' + v).join(' · ')}。强度越高，同样时间消耗越多。</div>
     </div>
     <div class="field">
-      <div class="field-label">距离 <span class="hint">可选，不参与热量计算</span></div>
+      <div class="field-label">距离 <span class="hint">填了就按距离÷时长算配速，比拨速度准</span></div>
       <div class="set-in" style="padding:0 12px"><input type="number" inputmode="decimal" step="0.1" min="0" id="distInput" value="${f.distKm || ''}" placeholder="0" aria-label="距离"><span>km</span></div>
     </div>`;
   }
@@ -1451,9 +1655,19 @@ function cardioFormHTML(){
     ${stepperHTML('durMin', f.durMin, 1, 300, 5, '分钟')}
   </div>
   ${extra}
+  ${f.type === 'cardio' ? `
+  <div class="field">
+    <div class="field-label">平均心率 <span class="hint">选填。填了就用心率算，比 MET 估算准</span></div>
+    <div class="set-in" style="padding:0 12px"><input type="number" inputmode="numeric" step="1" min="0" max="220" id="hrInput" value="${f.avgHr || ''}" placeholder="如 150" aria-label="平均心率"><span>bpm</span></div>
+  </div>
+  ${(CARDIO_MODES[f.mode] || {}).watt ? `
+  <div class="field">
+    <div class="field-label">功率 <span class="hint">选填。器械屏幕上的瓦特数，优先于强度档</span></div>
+    <div class="set-in" style="padding:0 12px"><input type="number" inputmode="numeric" step="5" min="0" max="600" id="wattInput" value="${f.watts || ''}" placeholder="如 120" aria-label="功率"><span>W</span></div>
+  </div>` : ''}` : ''}
   <div class="field">
     <div class="field-label">备注 <span class="hint">可留空</span></div>
-    <input class="txt" type="text" id="noteInput" maxlength="60" placeholder="如：跑步机，心率 150" value="${esc(f.note)}">
+    <input class="txt" type="text" id="noteInput" maxlength="60" placeholder="如：跑步机，坡度 3" value="${esc(f.note)}">
   </div>
   ${previewHTML()}
   <button class="btn-save" data-save="1">${ico('check')}保存记录</button>
@@ -1487,30 +1701,24 @@ function autoIntensity(){
 function recalc(){
   const f = state.form;
   if (!f) return;
-  const p = Store.profile(), kg = p.weight || 70, a = state.editing;
-  let met = 0, durMin = 0, note = '';
+  const p = profileAt(state.date), a = state.editing;
+  const r = f.type === 'weight' ? strengthEst(a, f, p) : cardioEst(f, p);
+  let note = r.note;
   if (f.type === 'weight'){
-    const k = (STRENGTH_LEVELS.find(l => l.id === f.intensity) || STRENGTH_LEVELS[1]).k;
-    met = clamp(num(a && a.met, 4.5) * k, 2.5, 9);
-    durMin = f.setList.length * (num(f.workSec, 40) + num(f.restSec, 90)) / 60;
     const vol = f.setList.reduce((s, x) => s + num(x.w, 0) * num(x.r, 0), 0);
-    note = `${f.setList.length}组 · ${vol ? '容量 ' + fmtVol(vol) : '自重'}`;
-  } else {
-    durMin = num(f.durMin, 0);
-    const m = CARDIO_MODES[f.mode] || {};
-    if (m.kind === 'speed'){ met = f.mode === 'run' ? runMet(f.speed) : walkMet(f.speed); note = `${f.speed} km/h`; }
-    else if (m.kind === 'slope'){ met = inclineMet(f.slope, f.speed); note = `坡度 ${f.slope}% · ${f.speed}km/h`; }
-    else { met = (m.levels || [5, 6, 7])[num(f.level, 1)]; note = LEVEL_NAMES[num(f.level, 1)]; }
+    const ph = physOf(a);
+    note = `${f.setList.length}组 · ${vol ? '容量 ' + fmtVol(vol) : '自重'}`
+         + (r.mech > 0 ? ` · 举起做功 ${Math.round(r.mech)} kcal` : '');
+    if (ph.fallback) note += ' · 参数未识别，按保守值估算';
   }
   const net = useNet();
-  state._met = met; state._durMin = durMin;
-  state._kcal = calcKcal(met, kg, durMin, false);
-  state._kcalNet = calcKcal(met, kg, durMin, true);
+  state._met = r.met; state._durMin = r.min;
+  state._kcal = r.gross; state._kcalNet = r.net;
   const el = $('#preKcal');
   if (!el) return;
-  el.textContent = Math.round(net ? state._kcalNet : state._kcal) + ' kcal';
-  $('#preLabel').textContent = net ? '预计净消耗' : '预计消耗';
-  $('#preNote').innerHTML = `MET ${met.toFixed(1)} · ${fmtHM(durMin)}<br>${esc(note)}`;
+  el.textContent = '约 ' + round5(net ? state._kcalNet : state._kcal) + ' kcal';
+  $('#preLabel').textContent = net ? '预计净消耗' : '预计总消耗';
+  $('#preNote').innerHTML = `等效 MET ${r.met.toFixed(1)} · ${fmtHM(r.min)}<br>${esc(note || '')}`;
 }
 function syncSetsUI(full){
   if (full) $('#setsWrap').innerHTML = setsHTML();
@@ -1616,6 +1824,8 @@ function bindDrawerEvents(){
       return;
     }
     if (t.id === 'distInput'){ state.form.distKm = Math.max(0, num(t.value, 0)); syncCardio('dist'); recalc(); return; }
+    if (t.id === 'hrInput'){ state.form.avgHr = Math.max(0, num(t.value, 0)); recalc(); return; }
+    if (t.id === 'wattInput'){ state.form.watts = Math.max(0, num(t.value, 0)); recalc(); return; }
     if (t.id === 'noteInput'){ state.form.note = t.value; return; }
   };
 }
@@ -1654,7 +1864,7 @@ function saveRecord(again){
     time: pad2(now.getHours()) + ':' + pad2(now.getMinutes()),
     aid: a.id, name: a.name, ico: a.ico || 'star', cat: a.cat, type: a.type,
     met: +state._met.toFixed(2), durMin: +state._durMin.toFixed(1),
-    kcal: Math.round(state._kcal), kcalNet: Math.round(state._kcalNet),
+    kcal: Math.round(state._kcal), kcalNet: Math.round(state._kcalNet), mv: 2,
     note: (f.note || '').trim() || undefined,
   };
   if (a.type === 'weight'){
@@ -1663,6 +1873,8 @@ function saveRecord(again){
   } else {
     item.mode = f.mode; item.level = f.level; item.speed = f.speed; item.slope = f.slope;
     if (f.distKm) item.distKm = +f.distKm.toFixed(2);
+    if (f.avgHr) item.avgHr = num(f.avgHr, 0);
+    if (f.watts) item.watts = num(f.watts, 0);
   }
   const recs = Store.records();
   if (state.editRef){
@@ -1805,17 +2017,15 @@ function applyTemplate(tid){
       const m = CARDIO_MODES[t.mode] || {};
       it.mode = t.mode; it.level = t.level ?? 1; it.speed = t.speed; it.slope = t.slope;
       it.durMin = num(t.durMin, 30);
-      it.met = m.kind === 'speed' ? (t.mode === 'run' ? runMet(it.speed) : walkMet(it.speed))
-        : m.kind === 'slope' ? inclineMet(it.slope, it.speed) : (m.levels || [5, 6, 7])[it.level];
+
     } else {
       it.setList = (t.setList || [{ w: 0, r: 10 }]).map(s => ({ w: num(s.w, 0), r: num(s.r, 10), done: 0 }));
       it.intensity = t.intensity || 'mid'; it.restSec = num(t.restSec, 90); it.workSec = num(t.workSec, 40);
-      const k = (STRENGTH_LEVELS.find(l => l.id === it.intensity) || STRENGTH_LEVELS[1]).k;
-      it.met = clamp(num(a.met, 4.5) * k, 2.5, 9);
-      it.durMin = it.setList.length * (it.workSec + it.restSec) / 60;
     }
-    it.kcal = Math.round(calcKcal(it.met, kg, it.durMin, false));
-    it.kcalNet = Math.round(calcKcal(it.met, kg, it.durMin, true));
+    const pp = profileAt(date);
+    const r = it.type === 'cardio' ? cardioEst(it, pp) : strengthEst(a, it, pp);
+    it.met = +r.met.toFixed(2); it.durMin = +r.min.toFixed(1);
+    it.kcal = Math.round(r.gross); it.kcalNet = Math.round(r.net); it.mv = 2;
     return it;
   });
   (recs[date] = recs[date] || []).push(...added);
@@ -2099,6 +2309,34 @@ function customListHTML(){
     </span>
   </div>`).join('');
 }
+function customMatchHTML(d){
+  if (d.type === 'cardio') return '';
+  const nm = (d.name || '').trim();
+  if (!nm) return `<div class="ref-box" id="cmBox">填完名称会自动识别动作类型、负荷方式和参考重量。</div>`;
+  const m = matchMovement(nm);
+  if (!m) return `<div class="ref-box" id="cmBox">没认出「${esc(nm)}」这个动作。
+    下面挑一个<b>最接近的参照动作</b>，热量和参考重量会跟着它算：
+    <div class="pick-wrap" style="margin-top:8px"><select class="pick" id="customRef">
+      <option value="">—— 不选，按保守值估算 ——</option>
+      ${EXERCISE_KB.movements.filter(x => !x.hold).map(x =>
+        `<option value="${x.id}" ${d.refId === x.id ? 'selected' : ''}>${x.name}</option>`).join('')}
+    </select>${ico('chevron')}</div></div>`;
+  const TL = EXERCISE_KB.tiers[m.tier] || {};
+  const LT = EXERCISE_KB.loadTypes[m.loadType] || {};
+  const p = Store.profile(), w = p.weight || 70;
+  const ref = m.c ? Math.max(2.5, Math.round(m.c * w / 2.5) * 2.5) + 'kg'
+                  : (m.bw ? '自重约 ' + Math.round(m.bw * w) + 'kg' : '—');
+  return `<div class="ref-box" id="cmBox">
+    已识别为 <b>${esc(m.mv.name)}</b> · ${esc(LT.name || m.loadType)} · ${esc(TL.label || m.tier)}
+    ${m.tags.length ? ' · ' + m.tags.join('/') : ''}
+    <div class="ref-note" style="margin-top:6px">行程 ${m.rom}m · 参考重量 ${ref}${m.confident ? '' : '（把握一般，可在下面手动指定参照动作）'}</div>
+    ${m.confident ? '' : `<div class="pick-wrap" style="margin-top:8px"><select class="pick" id="customRef">
+      <option value="">—— 用自动识别的结果 ——</option>
+      ${EXERCISE_KB.movements.filter(x => !x.hold).map(x =>
+        `<option value="${x.id}" ${d.refId === x.id ? 'selected' : ''}>${x.name}</option>`).join('')}
+    </select>${ico('chevron')}</div>`}
+  </div>`;
+}
 function customFormHTML(){
   const d = state.customDraft;
   const isEdit = !!state.editingCustom;
@@ -2106,8 +2344,8 @@ function customFormHTML(){
   const stdKg = d.c ? Math.round(d.c * (p.weight || 70) * 2) / 2 : '';
   return `
     <div class="form-row one">
-      <div class="form-item"><label>动作名称</label>
-        <input class="txt" type="text" id="customName" maxlength="20" placeholder="如：绳索单臂侧平举" value="${esc(d.name || '')}"></div>
+      <div class="form-item"><label>动作名称 · 写全一点识别更准，如「绳索单臂侧平举」</label>
+        <input class="txt" type="text" id="customName" maxlength="24" placeholder="如：绳索单臂侧平举" value="${esc(d.name || '')}"></div>
     </div>
     <div class="form-row one">
       <div class="form-item"><label>类型</label>
@@ -2116,6 +2354,7 @@ function customFormHTML(){
           <button data-t="cardio" class="${d.type === 'cardio' ? 'on' : ''}">有氧</button>
         </div></div>
     </div>
+    <div class="form-row one"><div class="form-item">${customMatchHTML(d)}</div></div>
     <div class="form-row one">
       <div class="form-item"><label>所属分类</label>
         <div class="seg wrap" id="customCatSeg">
@@ -2124,8 +2363,8 @@ function customFormHTML(){
     </div>
     ${d.type === 'weight' ? `
     <div class="form-row one">
-      <div class="form-item"><label>标准重量（可选）· 你能做 6-8 次的重量，用来生成参考区间</label>
-        <input class="num" type="number" inputmode="decimal" id="customStd" min="0" max="500" step="2.5" placeholder="留空则不显示参考" value="${stdKg}"></div>
+      <div class="form-item"><label>标准重量（可选）· 你能做 6-8 次的重量，填了就覆盖自动识别的参考区间</label>
+        <input class="num" type="number" inputmode="decimal" id="customStd" min="0" max="500" step="2.5" placeholder="留空则用自动识别值" value="${stdKg}"></div>
     </div>` : `
     <div class="form-row one">
       <div class="form-item"><label>热量参照</label>
@@ -2193,14 +2432,16 @@ function renderProfile(){
       </div></div>
     <div class="form-row">
       <div class="form-item"><label>默认组间休息 (秒)</label><input class="num" type="number" inputmode="numeric" id="inRest" min="15" max="300" step="15" value="${st.defaultRest}"></div>
-      <div class="form-item"><label>默认每组时间 (秒)</label><input class="num" type="number" inputmode="numeric" id="inWork" min="10" max="180" step="5" value="${st.defaultWork}"></div>
+      <div class="form-item"><label>默认每组时间 (秒) · 参与热量计算</label><input class="num" type="number" inputmode="numeric" id="inWork" min="10" max="180" step="5" value="${st.defaultWork}"></div>
     </div>
     <div class="form-item" style="margin-bottom:12px"><label>热量显示方式</label>
       <div class="seg" id="netSeg">
         <button data-n="0" class="${st.netKcal ? '' : 'on'}">总消耗</button>
         <button data-n="1" class="${st.netKcal ? 'on' : ''}">净消耗</button>
       </div>
-      <div class="note-line">净消耗扣掉了同一时间段的基础代谢，更接近「比躺着多烧了多少」，数值会比总消耗小。</div>
+      <div class="note-line">净消耗扣掉了同一时间段的基础代谢，更接近「比躺着多烧了多少」，数值会比总消耗小，也是更可信的口径。<br>
+        热量按 2024 Compendium 的 MET 实测值 + 举起重量的机械功估算，个体误差约 ±20~30%，看趋势比看绝对值有意义。
+        算法已于本版更新，更早的记录仍是旧口径。</div>
     </div>
     <div class="form-item" style="margin-bottom:12px"><label>打勾某组后自动开始休息计时</label>
       <div class="seg" id="autoRestSeg">
@@ -2596,7 +2837,7 @@ function bindGlobalEvents(){
     if (cc){ segPick('#customCatSeg', cc); state.customDraft.cat = cc.dataset.c; return; }
     const ci = t.closest('#customIcons button');
     if (ci){ segPick('#customIcons', ci); state.customDraft.ico = ci.dataset.ico; return; }
-    if (t.closest('#customCancel')){ state.editingCustom = null; state.customDraft = { cat: 'chest', ico: 'star', type: 'weight', load: 'bar', c: 0 }; refreshCustomUI(); return; }
+    if (t.closest('#customCancel')){ state.editingCustom = null; state.customDraft = { cat: 'chest', ico: 'star', type: 'weight' }; refreshCustomUI(); return; }
     if (t.closest('#customSave')){ saveCustom(); return; }
     const ce = t.closest('[data-cedit]');
     if (ce){
@@ -2614,7 +2855,7 @@ function bindGlobalEvents(){
       if (!c) return;
       confirmBox('删除自定义动作', `确定删除「${esc(c.name)}」？已经记录的历史不会受影响。`, '删除', () => {
         Store.set('custom', Store.custom().filter(x => x.id !== c.id));
-        if (state.editingCustom === c.id){ state.editingCustom = null; state.customDraft = { cat: 'chest', ico: 'star', type: 'weight', load: 'bar', c: 0 }; }
+        if (state.editingCustom === c.id){ state.editingCustom = null; state.customDraft = { cat: 'chest', ico: 'star', type: 'weight' }; }
         refreshCustomUI();
         renderProfile();
         toast('已删除');
@@ -2628,6 +2869,18 @@ function bindGlobalEvents(){
   });
   $('#page-profile').addEventListener('change', e => {
     if (e.target.id === 'customMode') state.customDraft.mode = e.target.value;
+    if (e.target.id === 'customRef'){
+      state.customDraft.refId = e.target.value;
+      const box = $('#cmBox'); if (box) box.outerHTML = customMatchHTML(state.customDraft);
+    }
+    if (e.target.id === 'customName'){
+      state.customDraft.name = e.target.value;
+      clearTimeout(window._cmT);
+      window._cmT = setTimeout(() => {
+        const box = $('#cmBox');
+        if (box){ state.customDraft.refId = ''; box.outerHTML = customMatchHTML(state.customDraft); }
+      }, 350);
+    }
     if (e.target.id !== 'importFile') return;
     const file = e.target.files && e.target.files[0];
     e.target.value = '';
@@ -2659,10 +2912,11 @@ function bindGlobalEvents(){
   window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (S().theme === 'auto') applyTheme(); });
 }
 function readCustomForm(){
-  const n = $('#customName'), s = $('#customStd'), m = $('#customMode');
+  const n = $('#customName'), s = $('#customStd'), m = $('#customMode'), r = $('#customRef');
   if (n) state.customDraft.name = n.value;
   if (s) state.customDraft._std = num(s.value, 0);
   if (m) state.customDraft.mode = m.value;
+  if (r) state.customDraft.refId = r.value || '';
 }
 function saveCustom(){
   readCustomForm();
@@ -2683,15 +2937,25 @@ function saveCustom(){
   if (obj.type === 'cardio'){
     obj.mode = d.mode || 'hiit';
     obj.met = (CARDIO_MODES[obj.mode].levels || [6])[1] || 6;
+    obj.load = 'bar';
   } else {
-    obj.c = d._std > 0 ? +(d._std / (p.weight || 70)).toFixed(3) : num(d.c, 0);
-    obj.load = 'bar'; obj.met = 4.2;
+    const R = resolveCustomPhys(d);
+    if (R){
+      obj.phys = R.phys; obj.load = R.load; obj.compound = R.compound; obj.refId = R.refId;
+      obj.c = d._std > 0 ? +(d._std / (p.weight || 70)).toFixed(3) : R.c;
+    } else {
+      // 识别不出又没选参照：保守取上肢复合 + 中等行程，并明确标记
+      obj.phys = { rom:0.40, tier:'compound_upper', bw:0, lever:1,
+                   loadType:'bar', hold:false, fallback:1 };
+      obj.load = 'bar';
+      obj.c = d._std > 0 ? +(d._std / (p.weight || 70)).toFixed(3) : 0;
+    }
   }
   const i = custom.findIndex(c => c.id === obj.id);
   if (i >= 0) custom[i] = obj; else custom.push(obj);
   Store.set('custom', custom);
   state.editingCustom = null;
-  state.customDraft = { cat: obj.cat, ico: 'star', type: 'weight', load: 'bar', c: 0 };
+  state.customDraft = { cat: obj.cat, ico: 'star', type: 'weight' };
   invalidateActions();
   renderProfile();
   toast(i >= 0 ? '已保存修改' : `已添加「${name}」`);
